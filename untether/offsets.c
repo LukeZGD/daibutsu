@@ -39,7 +39,7 @@ uint32_t koffsets_S5L894xX_902[] = {
     0x31a5d0,   // OSSymbol::getMetaClass
     0x1daec,    // calend_gettime
     0xd97d0,    // _bufattr_cpx
-    0x40a3cc,   // clock_ops
+    0x4043cc,   // clock_ops
     0xcc754,    // _copyin
     0xd97d2,    // BX LR
     0xc7488,    // write_gadget: str r1, [r0, #0xc] , bx lr
@@ -48,7 +48,7 @@ uint32_t koffsets_S5L894xX_902[] = {
     0xbc9b8,    // flush_dcache
     0xc74e0,    // invalidate_tlb
     0x2fca70,   // task_for_pid
-    0x18+2,     // pid_check_addr offset
+    0x16+2,     // pid_check_addr offset
     0x40,       // posix_check_ret_addr offset
     0x224,      // mac_proc_check_ret_addr offset
     0x403c34,   // allproc
@@ -94,7 +94,7 @@ uint32_t koffsets_S5L895xX_840[] = { // 8.4 A6
     0x2c04d4,   // task_for_pid
     0x16+2,     // pid_check_addr offset
     0x3e,       // posix_check_ret_addr offset
-    0x224,      // mac_proc_check_ret_addr offset
+    0x222,      // mac_proc_check_ret_addr offset
     0x3f9970,   // allproc
     0x8,        // proc_t::p_pid
     0x8c,       // proc_t::p_ucred
@@ -116,7 +116,7 @@ uint32_t koffsets_S5L895xX_830[] = { // 8.3 A6
     0x2c0450,   // task_for_pid
     0x16+2,     // pid_check_addr offset
     0x3e,       // posix_check_ret_addr offset
-    0x224,      // mac_proc_check_ret_addr offset
+    0x222,      // mac_proc_check_ret_addr offset
     0x3f9970,   // allproc
     0x8,        // proc_t::p_pid
     0x8c,       // proc_t::p_ucred
@@ -138,7 +138,7 @@ uint32_t koffsets_S5L895xX_820[] = { // 8.2 A6
     0x2b4888,   // task_for_pid
     0x16+2,     // pid_check_addr offset
     0x3e,       // posix_check_ret_addr offset
-    0x224,      // mac_proc_check_ret_addr offset
+    0x222,      // mac_proc_check_ret_addr offset
     0x3ec8f0,   // allproc
     0x8,        // proc_t::p_pid
     0x8c,       // proc_t::p_ucred
@@ -160,7 +160,7 @@ uint32_t koffsets_S5L895xX_813[] = { // 8.1.3 A6
     0x2b1b8c,   // task_for_pid
     0x16+2,     // pid_check_addr offset
     0x3e,       // posix_check_ret_addr offset
-    0x224,      // mac_proc_check_ret_addr offset
+    0x222,      // mac_proc_check_ret_addr offset
     0x3e98e8,   // allproc
     0x8,        // proc_t::p_pid
     0x8c,       // proc_t::p_ucred
@@ -182,7 +182,7 @@ uint32_t koffsets_S5L895xX_812[] = { // 8.1.2 A6
     0x2b1968,   // task_for_pid
     0x16+2,     // pid_check_addr offset
     0x3e,       // posix_check_ret_addr offset
-    0x224,      // mac_proc_check_ret_addr offset
+    0x222,      // mac_proc_check_ret_addr offset
     0x3e98c4,   // allproc
     0x8,        // proc_t::p_pid
     0x8c,       // proc_t::p_ucred
@@ -204,7 +204,7 @@ uint32_t koffsets_S5L895xX_810[] = { // 8.1 A6
     0x2b14e8,   // task_for_pid
     0x16+2,     // pid_check_addr offset
     0x3e,       // posix_check_ret_addr offset
-    0x224,      // mac_proc_check_ret_addr offset
+    0x222,      // mac_proc_check_ret_addr offset
     0x3e98b4,   // allproc
     0x8,        // proc_t::p_pid
     0x8c,       // proc_t::p_ucred
@@ -226,7 +226,7 @@ uint32_t koffsets_S5L895xX_802[] = { // 8.0.2 A6
     0x2b1488,   // task_for_pid
     0x16+2,     // pid_check_addr offset
     0x3e,       // posix_check_ret_addr offset
-    0x224,      // mac_proc_check_ret_addr offset
+    0x222,      // mac_proc_check_ret_addr offset
     0x3e98b4,   // allproc
     0x8,        // proc_t::p_pid
     0x8c,       // proc_t::p_ucred
@@ -270,7 +270,7 @@ uint32_t koffsets_S5L894xX_840[] = { // 8.4 A5
     0x2bbd78,   // task_for_pid
     0x16+2,     // pid_check_addr offset
     0x3e,       // posix_check_ret_addr offset
-    0x224,      // mac_proc_check_ret_addr offset
+    0x222,      // mac_proc_check_ret_addr offset
     0x3f4810,   // allproc
     0x8,        // proc_t::p_pid
     0x8c,       // proc_t::p_ucred
@@ -292,7 +292,7 @@ uint32_t koffsets_S5L894xX_830[] = { // 8.3 A5
     0x2bbce8,   // task_for_pid
     0x16+2,     // pid_check_addr offset
     0x3e,       // posix_check_ret_addr offset
-    0x224,      // mac_proc_check_ret_addr offset
+    0x222,      // mac_proc_check_ret_addr offset
     0x3f480c,   // allproc
     0x8,        // proc_t::p_pid
     0x8c,       // proc_t::p_ucred
@@ -314,7 +314,7 @@ uint32_t koffsets_S5L894xX_820[] = { // 8.2 A5
     0x2b0150,   // task_for_pid
     0x16+2,     // pid_check_addr offset
     0x3e,       // posix_check_ret_addr offset
-    0x224,      // mac_proc_check_ret_addr offset
+    0x222,      // mac_proc_check_ret_addr offset
     0x3e6790,   // allproc
     0x8,        // proc_t::p_pid
     0x8c,       // proc_t::p_ucred
@@ -336,7 +336,7 @@ uint32_t koffsets_S5L894xX_813[] = { // 8.1.3 A5
     0x2ad404,   // task_for_pid
     0x16+2,     // pid_check_addr offset
     0x3e,       // posix_check_ret_addr offset
-    0x224,      // mac_proc_check_ret_addr offset
+    0x222,      // mac_proc_check_ret_addr offset
     0x3e4788,   // allproc
     0x8,        // proc_t::p_pid
     0x8c,       // proc_t::p_ucred
@@ -358,7 +358,7 @@ uint32_t koffsets_S5L894xX_812[] = { // 8.1.2 A5
     0x2acf84,   // task_for_pid
     0x16+2,     // pid_check_addr offset
     0x3e,       // posix_check_ret_addr offset
-    0x224,      // mac_proc_check_ret_addr offset
+    0x222,      // mac_proc_check_ret_addr offset
     0x3e3764,   // allproc
     0x8,        // proc_t::p_pid
     0x8c,       // proc_t::p_ucred
@@ -380,7 +380,7 @@ uint32_t koffsets_S5L894xX_810[] = { // 8.1 A5
     0x2acb04,   // task_for_pid
     0x16+2,     // pid_check_addr offset
     0x3e,       // posix_check_ret_addr offset
-    0x224,      // mac_proc_check_ret_addr offset
+    0x222,      // mac_proc_check_ret_addr offset
     0x3e3754,   // allproc
     0x8,        // proc_t::p_pid
     0x8c,       // proc_t::p_ucred
@@ -402,12 +402,11 @@ uint32_t koffsets_S5L894xX_802[] = { // 8.0.2 A5
     0x2aca94,   // task_for_pid
     0x16+2,     // pid_check_addr offset
     0x3e,       // posix_check_ret_addr offset
-    0x224,      // mac_proc_check_ret_addr offset
+    0x222,      // mac_proc_check_ret_addr offset
     0x3e3754,   // allproc
     0x8,        // proc_t::p_pid
     0x8c,       // proc_t::p_ucred
 };
-
 
 uint32_t koffset(enum koffsets offset){
     if (offsets == NULL) {
