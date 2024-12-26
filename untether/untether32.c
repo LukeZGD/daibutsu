@@ -384,7 +384,7 @@ void unjail8(uint32_t kbase){
     uint32_t PE_i_can_has_debugger_1 = kbase + find_i_can_has_debugger_1(kbase, kdata, ksize);
     uint32_t PE_i_can_has_debugger_2 = kbase + find_i_can_has_debugger_2(kbase, kdata, ksize);
     uint32_t p_bootargs = kbase + find_p_bootargs(kbase, kdata, ksize);
-    uint32_t vm_fault_enter = kbase + find_vm_fault_enter_patch_84(kbase, kdata, ksize);
+    //uint32_t vm_fault_enter = kbase + find_vm_fault_enter_patch_84(kbase, kdata, ksize);
     uint32_t vm_map_enter = kbase + find_vm_map_enter_patch(kbase, kdata, ksize);
     uint32_t vm_map_protect = kbase + find_vm_map_protect_patch(kbase, kdata, ksize);
     uint32_t mount_patch = kbase + find_mount(kbase, kdata, ksize) + 1;
@@ -400,13 +400,12 @@ void unjail8(uint32_t kbase){
     //uint32_t kernel_pmap = kbase + find_pmap_location(kbase, kdata, ksize);
     uint32_t kernel_pmap = find_kernel_pmap(kbase);
     
-    //printf("[PF] tfp0_patch:                 %08x\n", tfp0_patch);
     printf("[PF] proc_enforce:               %08x\n", proc_enforce);
     printf("[PF] cs_enforcement_disable:     %08x\n", cs_enforcement_disable_amfi);
     printf("[PF] PE_i_can_has_debugger_1:    %08x\n", PE_i_can_has_debugger_1);
     printf("[PF] PE_i_can_has_debugger_2:    %08x\n", PE_i_can_has_debugger_2);
     printf("[PF] p_bootargs:                 %08x\n", p_bootargs);
-    printf("[PF] vm_fault_enter:             %08x\n", vm_fault_enter);
+    //printf("[PF] vm_fault_enter:             %08x\n", vm_fault_enter);
     printf("[PF] vm_map_enter:               %08x\n", vm_map_enter);
     printf("[PF] vm_map_protect:             %08x\n", vm_map_protect);
     printf("[PF] mount_patch:                %08x\n", mount_patch);
@@ -429,11 +428,6 @@ void unjail8(uint32_t kbase){
     printf("[*] kernel pmap tte is at VA 0x%08x PA 0x%08x\n", tte_virt, tte_phys);
 
     printf("[*] running kernelpatcher\n");
-    
-    /* tfp0_patch: set NOP */
-    //printf("[*] tfp0_patch\n");
-    //patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (tfp0_patch & ~0xFFF));
-    //write_primitive_dword_tfp0(tfp0_patch, 0xbf00bf00);
 
     /* proc_enforce: -> 0 */
     printf("[*] proc_enforce\n");
@@ -453,11 +447,12 @@ void unjail8(uint32_t kbase){
     printf("[*] bootargs\n");
     patch_bootargs(p_bootargs);
     
-    /* vm_fault_enter */
+    /* vm_fault_enter
     printf("[*] vm_fault_enter\n");
     patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (vm_fault_enter & ~0xFFF));
     write_primitive_dword_tfp0(vm_fault_enter, 0x2201bf00);
-    
+    */
+
     /* vm_map_enter */
     printf("[*] vm_map_enter\n");
     patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (vm_map_enter & ~0xFFF));
@@ -549,7 +544,13 @@ void unjail8(uint32_t kbase){
     uint32_t sb_evaluate_hook = make_b_w((sb_patch-kbase), payload_base);
     patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (sb_patch & ~0xFFF));
     write_primitive_dword_tfp0(sb_patch, sb_evaluate_hook);
-    
+
+    printf("[*] patch tfp0\n");
+    uint32_t tfp0_patch = kbase + find_tfp0_patch(kbase, kdata, ksize);
+    printf("[PF] tfp0_patch: %08x\n", tfp0_patch);
+    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (tfp0_patch & ~0xFFF));
+    write_primitive_dword_tfp0(tfp0_patch, 0xbf00bf00);
+
     printf("[*] flush dcache\n");
     exec_primitive(flush_dcache, 0, 0);
     
@@ -707,7 +708,7 @@ void unjail9(uint32_t kbase){
     uint32_t sb_evaluate_hook = make_b_w((sb_patch-kbase), payload_base);
     patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (sb_patch & ~0xFFF));
     write_primitive_dword_tfp0(sb_patch, sb_evaluate_hook);
-    
+
     exec_primitive(flush_dcache, 0, 0);
     
     printf("enable patched.\n");
