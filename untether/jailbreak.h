@@ -17,5 +17,6 @@
 
 #define CHUNK_SIZE 0x800
 
+void jailbreak_init(void);
 void unjail8(uint32_t kbase);
 void unjail9(uint32_t kbase);

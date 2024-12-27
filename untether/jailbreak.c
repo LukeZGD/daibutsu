@@ -15,10 +15,16 @@
 #include <pthread.h>
 
 #include <mach/mach.h>
+
+#ifdef UNTETHER
 #include <IOKit/IOKitLib.h>
+#include "sock_port_2_legacy/sockpuppet.h"
+#else
+#include "../IOKit/IOKitLib.h"
+#include "../sock_port_2_legacy/sockpuppet.h"
+#endif
 
 #include "jailbreak.h"
-#include "sock_port_2_legacy/sockpuppet.h"
 #include "patchfinder.h"
 
 struct utsname u = { 0 };
@@ -51,7 +57,6 @@ void copyin(void* to, uint32_t from, size_t size) {
         if (size > 0x1000) {
             size = 0x1000;
         }
-        
     }
 }
 
@@ -460,7 +465,6 @@ void unjail8(uint32_t kbase){
     wk32(tfp0_patch, 0xbf00bf00);
     
     printf("enable patched.\n");
-    
 }
 
 void unjail9(uint32_t kbase){
@@ -644,7 +648,21 @@ void unjail9(uint32_t kbase){
     wk32(tfp0_patch, 0xbf00bf00);
 
     printf("enable patched.\n");
-    
+}
+
+void jailbreak_init(void) {
+    uname(&u);
+    printf("kern.version: %s\n", u.version);
+
+    if (strstr(u.version, "3248") || strstr(u.version, "3247") || strstr(u.version, "3216")) {
+        printf("isIOS9? yes\n");
+        isIOS9 = true;
+    }
+
+    if (strstr(u.version, "S5L894")) {
+        printf("isA5? yes\n");
+        isA5 = true;
+    }
 }
 
 #ifdef UNTETHER
@@ -698,18 +716,7 @@ void failed(void){
 }
 
 int main(void){
-    uname(&u);
-    printf("kern.version: %s\n", u.version);
-
-    if (strstr(u.version, "3248")) {
-        printf("isIOS9? yes\n");
-        isIOS9 = true;
-    }
-
-    if (strstr(u.version, "S5L894")) {
-        printf("isA5? yes\n");
-        isA5 = true;
-    }
+    jailbreak_init();
 
     uint32_t kernel_base;
     tfp0 = exploit(&kernel_base, isIOS9);
