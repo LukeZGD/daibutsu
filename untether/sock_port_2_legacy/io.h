@@ -1,7 +1,11 @@
 #ifndef IO_H
 #define IO_H
 
+#ifdef UNTETHER
 #include <IOKit/IOKitLib.h>
+#else
+#include "../IOKit/IOKitLib.h"
+#endif
 
 extern uint32_t kslide32;
 

@@ -1,47 +1,56 @@
-// offsets.h from wtfis
+int kstruct_offsets_9_0[] = {
+    0x18,  // TASK_VM_MAP
+    0x1c,  // TASK_NEXT
+    0x20,  // TASK_PREV
+    0xa4,  // TASK_ITK_SELF
+    0x1b8, // TASK_ITK_SPACE
+    0x200, // TASK_BSDINFO
 
-#include <string.h>
-#include <stdbool.h>
-#include <sys/utsname.h>
+    0x4c,  // IPC_PORT_IP_RECEIVER
+    0x50,  // IPC_PORT_IP_KOBJECT
+    0x70,  // IPC_PORT_IP_SRIGHTS
 
-enum kstruct_offset {
-    /* struct task */
-    TASK_VM_MAP,
-    TASK_NEXT,
-    TASK_PREV,
-    TASK_ITK_SELF,
-    TASK_ITK_SPACE,
-    TASK_BSDINFO,
+    0x8,   // BSDINFO_PID
+    0x90,  // PROC_P_FD
+    0x8c,  // BSDINFO_KAUTH_CRED
 
-    /* struct ipc_port */
-    IPC_PORT_IP_RECEIVER,
-    IPC_PORT_IP_KOBJECT,
-    IPC_PORT_IP_SRIGHTS,
+    0x0,   // FILEDESC_FD_OFILES
 
-    /* struct proc */
-    BSDINFO_PID,
-    PROC_P_FD,
-    BSDINFO_KAUTH_CRED,
+    0x8,   // FILEPROC_F_FGLOB
 
-    /* struct filedesc */
-    FILEDESC_FD_OFILES,
+    0x28,  // FILEGLOB_FG_DATA
 
-    /* struct fileproc */
-    FILEPROC_F_FGLOB,
+    0x10,  // PIPE_BUFFER
 
-    /* struct fileglob */
-    FILEGLOB_FG_DATA,
-
-    /* struct pipe */
-    PIPE_BUFFER,
-
-    /* struct ipc_space */
-    IPC_SPACE_IS_TABLE,
-    IPC_ENTRY_SIZE,
+    0x18,  // IPC_SPACE_IS_TABLE
+    0x10,  // IPC_ENTRY_SIZE
 };
 
-int koffset(enum kstruct_offset offset);
-void offsets_init(void);
+// 32-bit 8.x offsets
+int kstruct_offsets_8[] = {
+    0x18,  // TASK_VM_MAP
+    0x1c,  // TASK_NEXT
+    0x20,  // TASK_PREV
+    0xa4,  // TASK_ITK_SELF
+    0x1a8, // TASK_ITK_SPACE
+    0x1f0, // TASK_BSDINFO
 
-extern bool is_ios9;
-extern char* kernv;
+    0x40,  // IPC_PORT_IP_RECEIVER
+    0x44,  // IPC_PORT_IP_KOBJECT
+    0x5c,  // IPC_PORT_IP_SRIGHTS
+
+    0x8,   // BSDINFO_PID
+    0x90,  // PROC_P_FD
+    0x8c,  // BSDINFO_KAUTH_CRED
+
+    0x0,   // FILEDESC_FD_OFILES
+
+    0x8,   // FILEPROC_F_FGLOB
+
+    0x28,  // FILEGLOB_FG_DATA
+
+    0x10,  // PIPE_BUFFER
+
+    0x18,  // IPC_SPACE_IS_TABLE
+    0x10,  // IPC_ENTRY_SIZE
+};

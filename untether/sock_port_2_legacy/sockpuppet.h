@@ -76,6 +76,6 @@ struct ip6_pktopts {
     int ip6po_flags;
 };
 
-mach_port_t exploit(addr_t* kslide);
+mach_port_t exploit(addr_t* kslide, bool is_ios9);
 
 #endif

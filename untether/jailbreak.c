@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
 #include <assert.h>
@@ -29,8 +30,8 @@ kern_return_t mach_vm_read_overwrite(vm_map_t target_task, mach_vm_address_t add
 kern_return_t mach_vm_write(vm_map_t target_task, mach_vm_address_t address, vm_offset_t data, mach_msg_type_number_t dataCnt);
 
 mach_port_t tfp0;
-int isIOS9=0;
-int isA5=0;
+bool isIOS9 = false;
+bool isA5 = false;
 
 void copyin(void* to, uint32_t from, size_t size) {
     mach_vm_size_t outsize = size;
@@ -702,16 +703,16 @@ int main(void){
 
     if (strstr(u.version, "3248")) {
         printf("isIOS9? yes\n");
-        isIOS9=1;
+        isIOS9 = true;
     }
 
     if (strstr(u.version, "S5L894")) {
         printf("isA5? yes\n");
-        isA5=1;
+        isA5 = true;
     }
 
     uint32_t kernel_base;
-    tfp0 = exploit(&kernel_base);
+    tfp0 = exploit(&kernel_base, isIOS9);
     
     if(tfp0){
         printf("[*] got tfp0: %x\n", tfp0);
