@@ -1,12 +1,10 @@
-Package: jp.daibutsu.untether841
-Name: daibutsu 8.4.1 Untether
-Version: 1.2.3
+Package: com.lukezgd.everuntether
+Name: EverUntether
+Version: 1.1
 Architecture: iphoneos-arm
-Description: 32-bit untethered jailbreak based on sakuRdev/dora2ios's daibutsu.
-Depiction: https://dora2ios.github.io/info/jp.daibutsu.untether841/
-Maintainer: sakuRdev/dora2ios
-Author: sakuRdev/dora2ios
+Depends: firmware (>= 8.0), firmware (<= 9.0.2), uikittools (>= 1.1.10)
+Conflicts: cy+cpu.arm64, io.pangu.xuanyuansword8, taiguntether83x, net.tihmstar.daemonloader, com.lukezgd.daibutsumigrator, jp.daibutsu.untether841, io.pangu.fuxiqin9
+Description: Untether package for EverPwnage jailbreak. jsc untether + sock_port_2_legacy + daibutsu untether.
+Author: LukeZGD
+Maintainer: LukeZGD
 Section: System
-Priority : important
-Depends: firmware (= 8.4.1), uikittools (>= 1.1.10)
-Conflicts: cy+cpu.arm64, net.tihmstar.etasonuntether

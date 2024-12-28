@@ -1,11 +1,10 @@
 
 .DS_Store
-dyld_shared_cache_armv7s*
+dyld_shared_cache_arm*
 untether/untether32
 dyld/tmp
 dyld/haxx
 untether/BUILD/daibutsu
 afc2/BUILD_AFC2/usr/share/daibutsuAFC2/libexec/afcd2
-untether/package/jp.daibutsu.untether841_*_iphoneos-arm.deb
-afc2/package/jp.daibutsu.afc2d_*_iphoneos-arm.deb
 afc2/afcd2
+*.deb

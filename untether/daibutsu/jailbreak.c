@@ -18,12 +18,11 @@
 
 #ifdef UNTETHER
 #include <IOKit/IOKitLib.h>
-#include "sock_port_2_legacy/sockpuppet.h"
 #else
 #include "../IOKit/IOKitLib.h"
-#include "../sock_port_2_legacy/sockpuppet.h"
 #endif
 
+#include "../sock_port_2_legacy/sockpuppet.h"
 #include "jailbreak.h"
 #include "patchfinder.h"
 
@@ -225,7 +224,7 @@ uint32_t find_kernel_pmap(uintptr_t kernel_base) {
     if(isA5) {
         //A5 or A5X
         printf("A5(X) ");
-        if (strstr(u.version, "3248")) { //9.0-9.0.2
+        if (strstr(u.version, "3248") || strstr(u.version, "3247.1.88")) { //9.0-9.0.2
             printf("9.0-9.0.2\n");
             pmap_addr = 0x3f7444;
         } else if (strstr(u.version, "3247.1.56")) { //9.0b4

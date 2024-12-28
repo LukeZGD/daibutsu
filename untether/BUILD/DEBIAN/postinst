@@ -1,13 +1,9 @@
 #!/bin/bash
 
-# fix v1.2r bugs
 chown 0:0 /etc/fstab
 chown 0:0 /usr/libexec/dirhelper
 
-chown 0:0 /.installed_daibutsu
-chmod 0644 /.installed_daibutsu
+echo "/dev/disk0s1s1 / hfs ro 0 1
+/dev/disk0s1s2 /private/var hfs rw,nodev 0 2" > /private/etc/fstab
 
-if [[ -f "/.cydia_no_stash" ]]; then
-chown 0:0 /.cydia_no_stash
-chmod 0644 /.cydia_no_stash
-fi
+rm -f /.cydia_no_stash /.installed_everpwnage

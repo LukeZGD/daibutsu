@@ -1,10 +1,23 @@
 #!/bin/bash
 
-if [[ $1 == install ]]; then
+OS=`sysctl -n kern.osversion`
+PROD=`sysctl -n hw.machine`
 
-if [[ ! -f "/.installed_daibutsu" ]]; then
-    echo "not daibutsu jailbreak"
-    exit 1
-fi
-
-fi
+case $PROD in
+  iPhone5* | iPad3,[456] )
+    case $OS in
+      12* )
+        echo "While EverUntether is supported for this device/version, better use daibutsu (migrator) instead."
+        exit 1
+      ;;
+    esac
+  ;;
+  * )
+    case $OS in
+      12[FH]* )
+        echo "While EverUntether is supported for this device/version, better use daibutsu (migrator) instead."
+        exit 1
+      ;;
+    esac
+  ;;
+esac
