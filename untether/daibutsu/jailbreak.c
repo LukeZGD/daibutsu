@@ -285,12 +285,10 @@ uint32_t find_kernel_pmap(uintptr_t kernel_base) {
     return pmap_addr + kernel_base;
 }
 
+// debugger 1 and 2 for a5(x)
 uint32_t find_PE_i_can_has_debugger_1(void) {
     uint32_t PE_i_can_has_debugger_1;
-    if (strstr(u.version, "3248")) { //9.0-9.0.2
-        printf("9.0-9.0.2\n");
-        PE_i_can_has_debugger_1 = 0x3a8fc4;
-    } else if (strstr(u.version, "3247.1.88")) { //9.0b5
+    if (strstr(u.version, "3247.1.88")) { //9.0b5
         printf("9.0b5\n");
         PE_i_can_has_debugger_1 = 0x3a8f44;
     } else if (strstr(u.version, "3247.1.56")) { //9.0b4
@@ -305,16 +303,16 @@ uint32_t find_PE_i_can_has_debugger_1(void) {
     } else if (strstr(u.version, "3216")) { //9.0b1
         printf("9.0b1\n");
         PE_i_can_has_debugger_1 = 0x45ad20;
+    } else {
+        printf("9.0-9.0.2\n");
+        PE_i_can_has_debugger_1 = 0x3a8fc4;
     }
     return PE_i_can_has_debugger_1;
 }
 
 uint32_t find_PE_i_can_has_debugger_2(void) {
     uint32_t PE_i_can_has_debugger_2;
-    if (strstr(u.version, "3248") || strstr(u.version, "3247.1.88")) { //9.0-9.0.2
-        printf("9.0-9.0.2\n");
-        PE_i_can_has_debugger_2 = 0x3af014;
-    } else if (strstr(u.version, "3247.1.56")) { //9.0b4
+    if (strstr(u.version, "3247.1.56")) { //9.0b4
         printf("9.0b4\n");
         PE_i_can_has_debugger_2 = 0x3ae364;
     } else if (strstr(u.version, "3247.1.36")) { //9.0b3
@@ -326,6 +324,9 @@ uint32_t find_PE_i_can_has_debugger_2(void) {
     } else if (strstr(u.version, "3216")) { //9.0b1
         printf("9.0b1\n");
         PE_i_can_has_debugger_2 = 0x461e40;
+    } else {
+        printf("9.0-9.0.2\n");
+        PE_i_can_has_debugger_2 = 0x3af014;
     }
     return PE_i_can_has_debugger_2;
 }

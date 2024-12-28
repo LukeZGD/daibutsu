@@ -1042,9 +1042,10 @@ uint32_t find_i_can_has_debugger_2_90(uint32_t region, uint8_t* kdata, size_t ks
 
 uint32_t find_vm_fault_enter_patch_84(uint32_t region, uint8_t* kdata, size_t ksize)
 {
+
     const struct find_search_mask search_masks_a5[] =
     {
-        // A5(x&rA)
+        // A5(x&rA) 8.4.1
         {0xF0F0, 0xF000}, // AND.W Rx, Ry, #0x40
         {0xF0FF, 0x0040}, //
         {0xFFF0, 0xF8D0}, // ldr.w x, [Ry, #z]
@@ -1055,37 +1056,72 @@ uint32_t find_vm_fault_enter_patch_84(uint32_t region, uint8_t* kdata, size_t ks
         {0x0F00, 0x0F00},
         {0xFF00, 0xD100}, // BNE x              <- NOP
         {0xF800, 0x6800}, // LDR R2, [Ry,#X]    <- movs r2, #1
-        
+
     };
-    
-    const struct find_search_mask search_masks_a6[] =
-    {
-        // A6
-        {0xFFF0, 0xF8D0}, // ldr.w x, [Ry, #z]
-        {0x0000, 0x0000},
-        {0xF0F0, 0xF000}, // AND.W Rx, Ry, #0x40
-        {0xF0FF, 0x0040}, //
-        {0xFBF0, 0xF010}, // TST.W Rx, #0x200000
-        {0x0F00, 0x0F00},
-        {0xF800, 0x6800}, // LDR R3, [Ry,#X]
-        {0xFF00, 0xD100}, // BNE x              <- NOP
-        {0xF800, 0x6800}, // LDR R2, [Ry,#X]    <- movs r2, #1
-        
-    };
-    
-    uint16_t* insn_a6 = find_with_search_mask(region, kdata, ksize, sizeof(search_masks_a6) / sizeof(*search_masks_a6), search_masks_a6);
-    
-    if(!insn_a6){
-        uint16_t* insn_a5 = find_with_search_mask(region, kdata, ksize, sizeof(search_masks_a5) / sizeof(*search_masks_a5), search_masks_a5);
-        if(!insn_a5){
-            return 0;
-        }
-        return ((uintptr_t)insn_a5) - ((uintptr_t)kdata)+16;
-    } else {
-        return ((uintptr_t)insn_a6) - ((uintptr_t)kdata)+14;
+
+    uint16_t* insn_a5 = find_with_search_mask(region, kdata, ksize, sizeof(search_masks_a5) / sizeof(*search_masks_a5), search_masks_a5);
+    if (insn_a5) {
+        return (uintptr_t)insn_a5 - (uintptr_t)kdata +16;
     }
-    
-    return 0;
+
+
+    uint16_t* ref = NULL;
+
+    const struct find_search_mask search_masks[] = {
+        {0xF0F0, 0xF000}, // AND.W Rx, Ry, #0x40
+        {0xF0FF, 0x0040}, //
+        {0xFBF0, 0xF010}, // TST.W Rx, #0x200000
+        {0x0F00, 0x0F00},
+    };
+
+    uint16_t* insn = find_with_search_mask(region, kdata, ksize, sizeof(search_masks) / sizeof(*search_masks), search_masks);
+    if (!insn) {
+        return 0;
+    }
+
+    // find 'Bxx loc_xxx'
+    uint16_t* bne = NULL;
+
+    uint16_t* current_instruction = insn;
+    while((uintptr_t)current_instruction < (uintptr_t)(kdata + ksize))
+    {
+        if(insn_is_b_conditional(current_instruction))
+        {
+            bne = current_instruction;
+            break;
+        }
+
+        current_instruction += insn_is_32bit(current_instruction) ? 2 : 1;
+    }
+    if(!bne)
+        return 0;
+
+    ref = current_instruction; // save current insn
+
+
+    current_instruction += insn_is_32bit(current_instruction) ? 2 : 1; // push
+
+    // find next 'Bxx loc_xxx'
+    bne = NULL;
+    while((uintptr_t)current_instruction < (uintptr_t)(kdata + ksize))
+    {
+        if(insn_is_b_conditional(current_instruction))
+        {
+            bne = current_instruction;
+            break;
+        }
+
+        current_instruction += insn_is_32bit(current_instruction) ? 2 : 1;
+    }
+    if(!bne)
+        return 0;
+    current_instruction -= insn_is_32bit(current_instruction) ? 2 : 1; // back
+
+    // checkpoint
+    if(!insn_is_cmp_imm(current_instruction))
+        return 0;
+
+    return (uintptr_t)ref - (uintptr_t)kdata;
 }
 
 uint32_t find_vm_fault_enter_patch(uint32_t region, uint8_t* kdata, size_t ksize)
@@ -1278,22 +1314,42 @@ uint32_t find_tfp0_patch(uint32_t region, uint8_t* kdata, size_t ksize)
     // Find the beginning of task_for_pid function
     const struct find_search_mask search_masks[] =
     {
-        {0xF8FF, 0x9003},
-        {0xF8FF, 0x9002},
-        {0xF800, 0x2800},
-        {0xFBC0, 0xF000},
+        {0xF8FF, 0x9003}, // str rx, [sp, #0xc]
+        {0xF8FF, 0x9002}, // str rx, [sp, #0x8]
+        {0xF800, 0x2800}, // cmp rx, #0
+        {0xFBC0, 0xF000}, // beq  <-- NOP
         {0xD000, 0x8000},
-        {0xF800, 0xF000},
+        {0xF800, 0xF000}, // bl _port_name_to_task
         {0xF800, 0xF800},
-        {0xF8FF, 0x9003},
-        {0xF800, 0x2800},
-        {0xFBC0, 0xF000},
+        {0xF8FF, 0x9003}, // str rx, [sp, #0xc]
+        {0xF800, 0x2800}, // cmp rx, #0
+        {0xFBC0, 0xF000}, // beq
         {0xD000, 0x8000}
     };
+
+    const struct find_search_mask search_masks_A5[] =
+    {
+        {0xF8FF, 0x9003}, // str rx, [sp, #0xc]
+        {0xF800, 0x2800}, // cmp rx, #0         // why?!
+        {0xF8FF, 0x9002}, // str rx, [sp, #0x8]
+        {0xFBC0, 0xF000}, // beq  <-- NOP
+        {0xD000, 0x8000},
+        {0xF800, 0xF000}, // bl _port_name_to_task
+        {0xF800, 0xF800},
+        {0xF8FF, 0x9003}, // str rx, [sp, #0xc]
+        {0xF800, 0x2800}, // cmp rx, #0
+        {0xFBC0, 0xF000}, // beq
+        {0xD000, 0x8000}
+    };
+
     uint16_t* fn_start = find_with_search_mask(region, kdata, ksize, sizeof(search_masks) / sizeof(*search_masks), search_masks);
 
-    if(!fn_start)
-        return 0;
+    if(!fn_start) {
+        fn_start = find_with_search_mask(region, kdata, ksize, sizeof(search_masks_A5) / sizeof(*search_masks_A5), search_masks_A5);
+        if(!fn_start) {
+            return 0;
+        }
+    }
 
     return ((uintptr_t)fn_start) + 6 - ((uintptr_t)kdata);
 }
