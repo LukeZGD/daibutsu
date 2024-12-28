@@ -54,6 +54,7 @@ uint32_t find_vm_map_enter_patch(uint32_t region, uint8_t* kdata, size_t ksize);
 
 // Change the conditional branch here to an unconditional branch.
 uint32_t find_vm_map_protect_patch(uint32_t region, uint8_t* kdata, size_t ksize);
+uint32_t find_vm_map_protect_patch_84(uint32_t region, uint8_t* kdata, size_t ksize);
 
 // Change the conditional branch here to an unconditional branch.
 uint32_t find_tfp0_patch(uint32_t region, uint8_t* kdata, size_t ksize);

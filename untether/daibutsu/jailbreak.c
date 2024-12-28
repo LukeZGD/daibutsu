@@ -285,6 +285,51 @@ uint32_t find_kernel_pmap(uintptr_t kernel_base) {
     return pmap_addr + kernel_base;
 }
 
+uint32_t find_PE_i_can_has_debugger_1(void) {
+    uint32_t PE_i_can_has_debugger_1;
+    if (strstr(u.version, "3248")) { //9.0-9.0.2
+        printf("9.0-9.0.2\n");
+        PE_i_can_has_debugger_1 = 0x3a8fc4;
+    } else if (strstr(u.version, "3247.1.88")) { //9.0b5
+        printf("9.0b5\n");
+        PE_i_can_has_debugger_1 = 0x3a8f44;
+    } else if (strstr(u.version, "3247.1.56")) { //9.0b4
+        printf("9.0b4\n");
+        PE_i_can_has_debugger_1 = 0x3a7394;
+    } else if (strstr(u.version, "3247.1.36")) { //9.0b3
+        printf("9.0b3\n");
+        PE_i_can_has_debugger_1 = 0x3a8444;
+    } else if (strstr(u.version, "3247.1.6")) { //9.0b2
+        printf("9.0b2\n");
+        PE_i_can_has_debugger_1 = 0x3ad524;
+    } else if (strstr(u.version, "3216")) { //9.0b1
+        printf("9.0b1\n");
+        PE_i_can_has_debugger_1 = 0x45ad20;
+    }
+    return PE_i_can_has_debugger_1;
+}
+
+uint32_t find_PE_i_can_has_debugger_2(void) {
+    uint32_t PE_i_can_has_debugger_2;
+    if (strstr(u.version, "3248") || strstr(u.version, "3247.1.88")) { //9.0-9.0.2
+        printf("9.0-9.0.2\n");
+        PE_i_can_has_debugger_2 = 0x3af014;
+    } else if (strstr(u.version, "3247.1.56")) { //9.0b4
+        printf("9.0b4\n");
+        PE_i_can_has_debugger_2 = 0x3ae364;
+    } else if (strstr(u.version, "3247.1.36")) { //9.0b3
+        printf("9.0b3\n");
+        PE_i_can_has_debugger_2 = 0x3b01a4;
+    } else if (strstr(u.version, "3247.1.6")) { //9.0b2
+        printf("9.0b2\n");
+        PE_i_can_has_debugger_2 = 0x3b4b94;
+    } else if (strstr(u.version, "3216")) { //9.0b1
+        printf("9.0b1\n");
+        PE_i_can_has_debugger_2 = 0x461e40;
+    }
+    return PE_i_can_has_debugger_2;
+}
+
 void unjail8(uint32_t kbase){
     printf("[*] jailbreaking...\n");
     
@@ -302,7 +347,7 @@ void unjail8(uint32_t kbase){
     uint32_t p_bootargs = kbase + find_p_bootargs(kbase, kdata, ksize);
     //uint32_t vm_fault_enter = kbase + find_vm_fault_enter_patch_84(kbase, kdata, ksize);
     uint32_t vm_map_enter = kbase + find_vm_map_enter_patch(kbase, kdata, ksize);
-    uint32_t vm_map_protect = kbase + find_vm_map_protect_patch(kbase, kdata, ksize);
+    uint32_t vm_map_protect = kbase + find_vm_map_protect_patch_84(kbase, kdata, ksize);
     uint32_t mount_patch = kbase + find_mount(kbase, kdata, ksize) + 1;
     uint32_t mapForIO = kbase + find_mapForIO(kbase, kdata, ksize);
     uint32_t sandbox_call_i_can_has_debugger = kbase + find_sandbox_call_i_can_has_debugger(kbase, kdata, ksize);
@@ -478,8 +523,6 @@ void unjail9(uint32_t kbase){
     printf("[*] running patchfinder\n");
     uint32_t proc_enforce = kbase + find_proc_enforce(kbase, kdata, ksize);
     uint32_t cs_enforcement_disable_amfi = kbase + find_cs_enforcement_disable_amfi(kbase, kdata, ksize);
-    uint32_t PE_i_can_has_debugger_1 = kbase + find_i_can_has_debugger_1_90(kbase, kdata, ksize);
-    uint32_t PE_i_can_has_debugger_2 = kbase + find_i_can_has_debugger_2_90(kbase, kdata, ksize);
     uint32_t p_bootargs = kbase + find_p_bootargs_generic(kbase, kdata, ksize);
     uint32_t vm_fault_enter = kbase + find_vm_fault_enter_patch(kbase, kdata, ksize);
     uint32_t vm_map_enter = kbase + find_vm_map_enter_patch(kbase, kdata, ksize);
@@ -493,6 +536,16 @@ void unjail9(uint32_t kbase){
     uint32_t csops_addr = kbase + find_csops(kbase, kdata, ksize);
     uint32_t amfi_file_check_mmap = kbase + find_amfi_file_check_mmap(kbase, kdata, ksize);
     uint32_t kernel_pmap = find_kernel_pmap(kbase);
+    uint32_t PE_i_can_has_debugger_1;
+    uint32_t PE_i_can_has_debugger_2;
+
+    if (isA5) {
+        PE_i_can_has_debugger_1 = kbase + find_PE_i_can_has_debugger_1();
+        PE_i_can_has_debugger_2 = kbase + find_PE_i_can_has_debugger_2();
+    } else {
+        PE_i_can_has_debugger_1 = kbase + find_i_can_has_debugger_1_90(kbase, kdata, ksize);
+        PE_i_can_has_debugger_2 = kbase + find_i_can_has_debugger_2_90(kbase, kdata, ksize);
+    }
 
     printf("[PF] proc_enforce:               %08x\n", proc_enforce);
     printf("[PF] cs_enforcement_disable:     %08x\n", cs_enforcement_disable_amfi);
