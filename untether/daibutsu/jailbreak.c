@@ -285,7 +285,7 @@ uint32_t find_kernel_pmap(uintptr_t kernel_base) {
     return pmap_addr + kernel_base;
 }
 
-// debugger 1 and 2 for a5(x)
+// debugger 1 and 2 for a5(x) 9.0.x
 uint32_t find_PE_i_can_has_debugger_1(void) {
     uint32_t PE_i_can_has_debugger_1;
     if (strstr(u.version, "3247.1.88")) { //9.0b5
@@ -346,7 +346,7 @@ void unjail8(uint32_t kbase){
     uint32_t PE_i_can_has_debugger_1 = kbase + find_i_can_has_debugger_1(kbase, kdata, ksize);
     uint32_t PE_i_can_has_debugger_2 = kbase + find_i_can_has_debugger_2(kbase, kdata, ksize);
     uint32_t p_bootargs = kbase + find_p_bootargs(kbase, kdata, ksize);
-    //uint32_t vm_fault_enter = kbase + find_vm_fault_enter_patch_84(kbase, kdata, ksize);
+    uint32_t vm_fault_enter = kbase + find_vm_fault_enter_patch_84(kbase, kdata, ksize);
     uint32_t vm_map_enter = kbase + find_vm_map_enter_patch(kbase, kdata, ksize);
     uint32_t vm_map_protect = kbase + find_vm_map_protect_patch_84(kbase, kdata, ksize);
     uint32_t mount_patch = kbase + find_mount(kbase, kdata, ksize) + 1;
@@ -365,7 +365,7 @@ void unjail8(uint32_t kbase){
     printf("[PF] PE_i_can_has_debugger_1:    %08x\n", PE_i_can_has_debugger_1);
     printf("[PF] PE_i_can_has_debugger_2:    %08x\n", PE_i_can_has_debugger_2);
     printf("[PF] p_bootargs:                 %08x\n", p_bootargs);
-    //printf("[PF] vm_fault_enter:             %08x\n", vm_fault_enter);
+    printf("[PF] vm_fault_enter:             %08x\n", vm_fault_enter);
     printf("[PF] vm_map_enter:               %08x\n", vm_map_enter);
     printf("[PF] vm_map_protect:             %08x\n", vm_map_protect);
     printf("[PF] mount_patch:                %08x\n", mount_patch);
@@ -405,11 +405,10 @@ void unjail8(uint32_t kbase){
     printf("[*] bootargs\n");
     patch_bootargs(p_bootargs);
     
-    /* vm_fault_enter
+    /* vm_fault_enter */
     printf("[*] vm_fault_enter\n");
     patch_page_table(tte_virt, tte_phys, (vm_fault_enter & ~0xFFF));
     wk32(vm_fault_enter, 0x2201bf00);
-    */
 
     /* vm_map_enter */
     printf("[*] vm_map_enter\n");

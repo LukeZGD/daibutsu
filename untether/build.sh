@@ -12,4 +12,4 @@ sudo rm -r */*/*/*/*/*/.DS_Store
 sudo cp everuntether tmp
 sudo chown 0:0 tmp/everuntether
 dpkg-deb --build -Zgzip tmp everuntether.deb
-sudo rm -r everuntether tmp
+sudo rm -r tmp
