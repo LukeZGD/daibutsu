@@ -224,7 +224,7 @@ uint32_t find_kernel_pmap(uintptr_t kernel_base) {
     if(isA5) {
         //A5 or A5X
         printf("A5(X) ");
-        if (strstr(u.version, "3248") || strstr(u.version, "3247.1.88")) { //9.0-9.0.2
+        if (strstr(u.version, "3248.1.") || strstr(u.version, "3247.1.88")) { //9.0-9.0.2
             printf("9.0-9.0.2\n");
             pmap_addr = 0x3f7444;
         } else if (strstr(u.version, "3247.1.56")) { //9.0b4
@@ -255,7 +255,7 @@ uint32_t find_kernel_pmap(uintptr_t kernel_base) {
     } else {
         //A6 or A6X
         printf("A6(X) ");
-        if (strstr(u.version, "3248")) { //9.0-9.0.2
+        if (strstr(u.version, "3248.1.") || strstr(u.version, "3247.1.88")) { //9.0-9.0.2
             printf("9.0-9.0.2\n");
             pmap_addr = 0x3fd444;
         } else if (strstr(u.version, "3247.1.56")) { //9.0b4
@@ -706,7 +706,7 @@ void jailbreak_init(void) {
     uname(&u);
     printf("kern.version: %s\n", u.version);
 
-    if (strstr(u.version, "3248") || strstr(u.version, "3247") || strstr(u.version, "3216")) {
+    if (strstr(u.version, "3248.1.") || strstr(u.version, "3247") || strstr(u.version, "3216")) {
         printf("isIOS9? yes\n");
         isIOS9 = true;
     }
