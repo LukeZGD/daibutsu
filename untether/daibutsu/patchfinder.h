@@ -112,7 +112,13 @@ uint32_t find_IOLog(uint32_t region, uint8_t* kdata, size_t ksize);
 
 uint32_t find_mount(uint32_t region, uint8_t* kdata, size_t ksize);
 uint32_t find_mount_90(uint32_t region, uint8_t* kdata, size_t ksize);
+uint32_t find_mount_84(uint32_t region, uint8_t* kdata, size_t ksize);
 
 uint32_t find_amfi_file_check_mmap(uint32_t region, uint8_t* kdata, size_t ksize);
+
+uint32_t find_PE_i_can_has_kernel_configuration_got(uint32_t region, uint8_t* kdata, size_t ksize);
+uint32_t find_lwvm_jump(uint32_t region, uint8_t* kdata, size_t ksize);
+
+uint32_t find_sbops(uint32_t region, uint8_t* kdata, size_t ksize);
 
 #endif

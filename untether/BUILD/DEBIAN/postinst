@@ -6,4 +6,4 @@ chown 0:0 /usr/libexec/dirhelper
 echo "/dev/disk0s1s1 / hfs ro 0 1
 /dev/disk0s1s2 /private/var hfs rw,nodev 0 2" > /private/etc/fstab
 
-rm -f /.cydia_no_stash /.installed_everpwnage
+rm -f /.installed_everpwnage

