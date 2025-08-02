@@ -1,5 +1,9 @@
 #!/bin/bash
 
+if [[ $1 == "upgrade" ]]; then
+    exit 0
+fi
+
 if [[ -L /Applications ]]; then # the device is already stashed, refuse removal
     echo "Refusing to remove this package as this action will render the device unbootable and possibly permanently unjailbreakable."
     exit 1

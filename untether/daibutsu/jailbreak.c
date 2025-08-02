@@ -230,7 +230,7 @@ uint32_t find_kernel_pmap(uintptr_t kernel_base) {
     if(isA5) {
         printf("A5(X) ");
         if (strstr(u.version, "3248.6") || strstr(u.version, "3248.5") || strstr(u.version, "3248.4")) {
-            printf("9.3-9.3.4\n");
+            printf("9.3.x\n");
             pmap_addr = 0x3f6454;
         } else if (strstr(u.version, "3248.31") || strstr(u.version, "3248.21")) {
             printf("9.2-9.2.1\n");
@@ -257,7 +257,7 @@ uint32_t find_kernel_pmap(uintptr_t kernel_base) {
     } else {
         printf("A6(X) ");
         if (strstr(u.version, "3248.6") || strstr(u.version, "3248.5") || strstr(u.version, "3248.4")) {
-            printf("9.3-9.3.4\n");
+            printf("9.3.x\n");
             pmap_addr = 0x3fe454;
         } else if (strstr(u.version, "3248.31") || strstr(u.version, "3248.21")) {
             printf("9.2-9.2.1\n");
