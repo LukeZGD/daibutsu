@@ -1,10 +1,10 @@
 Package: com.lukezgd.everuntether
 Name: EverUntether
-Version: 1.2-1
+Version: 1.3
 Architecture: iphoneos-arm
 Depends: firmware (>= 8.0), firmware (<= 9.3.4), uikittools (>= 1.1.10)
 Conflicts: cy+cpu.arm64, io.pangu.xuanyuansword8, taiguntether83x, net.tihmstar.daemonloader, com.lukezgd.daibutsumigrator, jp.daibutsu.untether841, io.pangu.fuxiqin9, net.tihmstar.daemonloader, net.tihmstar.untetherhomedepot
-Description: Untether package for EverPwnage jailbreak: jsc untether + sock_port_2_legacy + daibutsu untether. Used on A5(X) devices on iOS 8.0-8.2, and all devices on iOS 8.4 and 9.0-9.3.4.
+Description: Untether package for EverPwnage jailbreak: jsc untether + oob_entry + daibutsu untether. Used on A5(X) devices on iOS 8.0-8.2, and all devices on iOS 8.4 and 9.0-9.3.4.
 Author: LukeZGD
 Maintainer: LukeZGD
 Section: System
