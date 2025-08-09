@@ -1,0 +1,20 @@
+#!/bin/bash
+
+if [[ -s /daibutsu ]]; then
+    mkdir /taig
+    touch /taig/taig
+
+    mv /usr/libexec/CrashHousekeeping /usr/libexec/CrashHousekeeping_o
+    ln -sf /daibutsu /usr/libexec/CrashHousekeeping
+
+    mv /System/Library/LaunchDaemons/* /Library/LaunchDaemons
+    mv /Library/LaunchDaemons/bootps.plist /System/Library/LaunchDaemons
+    mv /Library/LaunchDaemons/com.apple.CrashHousekeeping.plist /System/Library/LaunchDaemons
+    mv /Library/LaunchDaemons/com.apple.MobileFileIntegrity.plist /System/Library/LaunchDaemons
+    mv /Library/LaunchDaemons/com.apple.mDNSResponder.plist_ /System/Library/LaunchDaemons
+    mv /Library/LaunchDaemons/com.apple.mobile.softwareupdated.plist_ /System/Library/LaunchDaemons
+    mv /Library/LaunchDaemons/com.apple.softwareupdateservicesd.plist_ /System/Library/LaunchDaemons
+    mv /Library/LaunchDaemons/com.apple.jetsamproperties.*.plist /System/Library/LaunchDaemons
+
+    mv /private/etc/apt/sources.list.d/kok3shiDev.list_ /private/etc/apt/sources.list.d/kok3shiDev.list
+fi

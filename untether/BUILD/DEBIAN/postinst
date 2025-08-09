@@ -7,3 +7,13 @@ echo "/dev/disk0s1s1 / hfs ro 0 1
 /dev/disk0s1s2 /private/var hfs rw,nodev 0 2" > /private/etc/fstab
 
 rm -f /.installed_everpwnage
+
+if [[ -s /usr/libexec/CrashHousekeeping_o ]]; then
+    rm /usr/libexec/CrashHousekeeping
+    mv /usr/libexec/CrashHousekeeping_o /usr/libexec/CrashHousekeeping
+fi
+
+if [[ -s /daibutsu ]]; then
+    mv /Library/LaunchDaemons/com.apple* /System/Library/LaunchDaemons
+    mv /private/etc/apt/sources.list.d/kok3shiDev.list /private/etc/apt/sources.list.d/kok3shiDev.list_
+fi
