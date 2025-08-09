@@ -6,14 +6,18 @@ chown 0:0 /usr/libexec/dirhelper
 echo "/dev/disk0s1s1 / hfs ro 0 1
 /dev/disk0s1s2 /private/var hfs rw,nodev 0 2" > /private/etc/fstab
 
-rm -f /.installed_everpwnage
+if [[ -L /usr/libexec/CrashHousekeeping ]]; then
+    echo "Detected CrashHousekeeping symlink. Removing..."
+    rm /usr/libexec/CrashHousekeeping
+fi
 
 if [[ -s /usr/libexec/CrashHousekeeping_o ]]; then
-    rm /usr/libexec/CrashHousekeeping
+    echo "Moving original CrashHousekeeping binary back..."
     mv /usr/libexec/CrashHousekeeping_o /usr/libexec/CrashHousekeeping
 fi
 
 if [[ -s /daibutsu ]]; then
+    echo "daibutsu detected. Moving LaunchDaemons..."
     mv /Library/LaunchDaemons/com.apple* /System/Library/LaunchDaemons
-    mv /private/etc/apt/sources.list.d/kok3shiDev.list /private/etc/apt/sources.list.d/kok3shiDev.list_
+    mv /private/etc/apt/sources.list.d/kok3shiDev.list /private/etc/apt/sources.list.d/kok3shiDev.list_ 2>/dev/null
 fi

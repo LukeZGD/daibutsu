@@ -1,12 +1,15 @@
 #!/bin/bash
 
 if [[ -s /daibutsu ]]; then
+    echo "daibutsu detected."
     mkdir /taig
     touch /taig/taig
 
+    echo "Creating CrashHousekeeping symlink..."
     mv /usr/libexec/CrashHousekeeping /usr/libexec/CrashHousekeeping_o
     ln -sf /daibutsu /usr/libexec/CrashHousekeeping
 
+    echo "Moving LaunchDaemons..."
     mv /System/Library/LaunchDaemons/* /Library/LaunchDaemons
     mv /Library/LaunchDaemons/bootps.plist /System/Library/LaunchDaemons
     mv /Library/LaunchDaemons/com.apple.CrashHousekeeping.plist /System/Library/LaunchDaemons
@@ -16,5 +19,5 @@ if [[ -s /daibutsu ]]; then
     mv /Library/LaunchDaemons/com.apple.softwareupdateservicesd.plist_ /System/Library/LaunchDaemons
     mv /Library/LaunchDaemons/com.apple.jetsamproperties.*.plist /System/Library/LaunchDaemons
 
-    mv /private/etc/apt/sources.list.d/kok3shiDev.list_ /private/etc/apt/sources.list.d/kok3shiDev.list
+    mv /private/etc/apt/sources.list.d/kok3shiDev.list_ /private/etc/apt/sources.list.d/kok3shiDev.list 2>/dev/null
 fi
