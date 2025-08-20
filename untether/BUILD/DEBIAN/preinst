@@ -14,7 +14,7 @@ case $PROD in
     esac
   ;;
   * )
-    if [[ $OS == "12"* ]]; then
+    if [[ $OS == "12"* && ! -s "/daibutsu" ]]; then
       echo "For this device/version, use EverUntether Migrator instead."
       exit 1
     fi
