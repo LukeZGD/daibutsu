@@ -455,7 +455,21 @@ void failed(void){
 int main(void){
     jailbreak_init();
 
-    run_exploit();
+    // hack, to just keep trying until it succeeds somehow
+    int ool_count = 5;
+    while (ool_count <= 1020) {
+        print_log("[*] ool_count = %d\n", ool_count);
+        int ret = run_exploit(ool_count);
+        if (ret == 0) break;
+        ool_count += 5;
+    }
+    ool_count = 5;
+    while (ool_count <= 1020) {
+        print_log("[*] ool_count = %d\n", ool_count);
+        int ret = run_exploit(ool_count);
+        if (ret == 0) break;
+        ool_count += 5;
+    }
 
     if(kinfo->tfp0){
         print_log("[*] got tfp0: %x\n", kinfo->tfp0);
@@ -480,7 +494,6 @@ int main(void){
         setuid(0);
         setgid(0);
     }
-    if (getuid() != 0 || getgid() != 0) return -1;
 
     if(!isIOS9){
         unjail8();
