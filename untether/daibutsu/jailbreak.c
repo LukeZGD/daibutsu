@@ -456,19 +456,22 @@ int main(void){
     jailbreak_init();
 
     // hack, to just keep trying until it succeeds somehow
-    int ool_count = 5;
-    while (ool_count <= 1020) {
+    int ool_count = 1020;
+    int ret = -1;
+    while (ool_count >= 5 && ret != 0) {
         print_log("[*] ool_count = %d\n", ool_count);
-        int ret = run_exploit(ool_count);
+        ret = run_exploit(ool_count);
         if (ret == 0) break;
-        ool_count += 5;
+        ool_count -= 5;
+        usleep(20000);
     }
-    ool_count = 5;
-    while (ool_count <= 1020) {
+    ool_count = 1020;
+    while (ool_count >= 5 && ret != 0) {
         print_log("[*] ool_count = %d\n", ool_count);
-        int ret = run_exploit(ool_count);
+        ret = run_exploit(ool_count);
         if (ret == 0) break;
-        ool_count += 5;
+        ool_count -= 5;
+        usleep(20000);
     }
 
     if(kinfo->tfp0){

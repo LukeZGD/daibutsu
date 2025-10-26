@@ -16,10 +16,12 @@ void print_log(const char *fmt, ...) {
     va_start(va, fmt);
     vsnprintf(buf, sizeof(buf), fmt, va);
     va_end(va);
+
+#ifndef UNTETHER
     syslog(LOG_ERR, "%s", buf);
     fprintf(stderr, "%s", buf);
     fflush(stderr);
-#ifdef UNTETHER
+#else
     static int console_fd = -1;
     if (console_fd < 0) {
         console_fd = open("/dev/console", O_WRONLY | O_NOCTTY);
